@@ -154,9 +154,15 @@ function rogue_dps()
         return true;
     elseif (playerHealthRatio < .70 and btp_cast_spell("Berserking")) then
         return true;
-    elseif (IsStealthed() and btp_cast_spell("Garrote")) then
+    elseif (IsStealthed() and 
+           (UnitClassification("target") == "normal" or
+            UnitClassification("target") == "trivial" or
+            UnitClassification("target") == "minus" or
+            UnitCreatureType("target") == "Elemental") and
+            btp_cast_spell("Backstab")) then
         return true;
-    elseif (IsStealthed() and btp_cast_spell("Backstab")) then
+    elseif (IsStealthed() and
+            btp_cast_spell("Garrote")) then
         return true;
     elseif (comboPoints > 4 and btp_cast_spell("Eviscerate")) then
         return true;
