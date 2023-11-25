@@ -235,7 +235,8 @@ function warrior_dps()
     elseif (not myClap and btp_check_dist("target", 3) and
             btp_cast_spell("Thunder Clap")) then
         return true;
-    elseif (not myRend and btp_check_dist("target", 3) and
+    elseif (rage > 15 and not myRend and btp_check_dist("target", 3) and
+            UnitCreatureType("target") ~= "Elemental" and
             btp_cast_spell("Rend")) then
         return true;
     elseif (btp_check_dist("target", 3) and

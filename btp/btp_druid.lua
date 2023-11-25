@@ -337,20 +337,6 @@ function druid_heal()
                 btp_cast_spell_on_target("Swiftmend", playerName)) then
             FuckBlizzardTargetUnit("playertarget");
             return true;
-        -- elseif (UnitAffectingCombat("player") and not hasThorns and
-        --         UnitHealth(playerName)/UnitHealthMax(playerName) > 
-        --         DR_THRESH + DR_SCALAR/2 and
-        --         UnitThreatSituation(playerName) ~= nil and
-        --         UnitThreatSituation(playerName) == 3 and
-        --         btp_cast_spell_on_target("Thorns", playerName)) then
-        --     FuckBlizzardTargetUnit("playertarget");
-        --     return true;
-        elseif (UnitAffectingCombat("player") and not hasThorns and
-                UnitHealth(playerName)/UnitHealthMax(playerName) > 
-                DR_THRESH + DR_SCALAR/2 and pvpBot and
-                btp_cast_spell_on_target("Thorns", playerName)) then
-            FuckBlizzardTargetUnit("playertarget");
-            return true;
         elseif (not myRejuvenation and
                 (
                     (UnitThreatSituation(playerName) ~= nil and UnitThreatSituation(playerName) >= 1) or
@@ -832,7 +818,7 @@ function btp_cb_druid_rebirth()
 
     if (UnitHealth(current_cb_target) > 1 or
        (((cast_start_time - GetTime()) <= 1) and
-        not btp_dist_check(current_cb_target, 1))) then
+        not btp_check_dist(current_cb_target, 1))) then
         --
         -- We will use the IPT target box because we never use this,
         -- and we may get to do some back-to-back stop cast and cast

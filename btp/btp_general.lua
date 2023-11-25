@@ -661,17 +661,28 @@ function SetEquipItem(itemName)
     equipItem = itemName;
 end
 
+function btp_in_range(spell, target)
+    if(spell == nil or target == nil) then return false; end
+
+    if (dontCheckDist) then
+        return true;
+    else
+	    inRange = IsSpellInRange(spell, target);
+        if (inRange and inRange == 1) then
+            return true;
+        else
+            return false;
+        end
+    end
+end
+
 function btp_check_dist(target, dist)
     if(target == nil or dist == nil) then return false; end
 
     if (dontCheckDist) then
         return true;
     else
-	    if(target ~= nil) then
-	    	return CheckInteractDistance(target, dist);
-	    else
-	    	return false;
-	    end
+	    return CheckInteractDistance(target, dist);
     end
 end
 
@@ -682,85 +693,85 @@ function BTP_Decursive()
     hasPoisonDebuff = false;
     debuffPlayer = "player";
 
-    for i = 1, GetNumRaidMembers() do
-        nextPlayer = "raid" .. i;
+    for nextPet in btp_iterate_group_pets() do
+        if (UnitExists(nextPet) and
+            btp_check_dist(nextPet, 1)) then
 
-        if (btp_check_dist(nextPlayer, 1)) then
-            if (UnitExists("raidpet" .. i) and
-                btp_check_dist("raidpet" .. i, 1)) then
-
-                debuffTexture = "foo";
-                j = 1;
-
-                while (debuffTexture) do
-                    debuffName, debuffRank, debuffTexture, debuffApplications,
-                    debuffType, debuffDuration, debuffTimeLeft, debuffMine,
-                    debuffStealable = UnitDebuff("raidpet" .. i, j);
-
-                    if (debuffTexture and
-                        not strfind(debuffTexture, "Cripple") and
-                        debuffType and strfind(debuffType, "Magic") and
-                        not (UnitClass("player") == "Mage" or
-                        UnitClass("player") == "Shaman")) then
-                        hasMagicDebuff = true;
-                        debuffPlayer = "raidpet" .. i;
-                    end
-
-                    if (debuffTexture and debuffType and
-                        strfind(debuffType, "Disease") and
-                        not (UnitClass("player") == "Druid" or
-                        UnitClass("player") == "Mage")) then
-                        hasDiseaseDebuff = true;
-                        debuffPlayer = "raidpet" .. i;
-
-                        --
-                        -- NullifyDisease check
-                        --
-                        hasNullifyDisease, myNullifyDisease,
-                        numNullifyDisease = btp_check_buff("NullifyDisease",
-                                                           debuffPlayer);
-
-                        if (hasNullifyDisease) then
-                            hasDiseaseDebuff = false;
-                        end
-                    end
-
-                    if (debuffTexture and debuffType and
-                        strfind(debuffType, "Curse") and
-                        not (UnitClass("player") == "Priest" or
-                        UnitClass("player") == "Paladin" or
-                        UnitClass("player") == "Shaman")) then
-                        hasCurseDebuff = true;
-                        debuffPlayer = "raidpet" .. i;
-                    end
-
-                    if (debuffTexture and debuffType and
-                        strfind(debuffType, "Poison") and
-                        not (UnitClass("player") == "Priest" or
-                        UnitClass("player") == "Mage")) then
-                        hasPoisonDebuff = true;
-                        debuffPlayer = "raidpet" .. i;
-
-                        --
-                        -- NullifyPoison check
-                        --
-                        hasNullifyPoison, myNullifyPoison,
-                        numNullifyPoison = btp_check_buff("NullifyPoison",
-                                                          debuffPlayer);
-
-                        if (hasNullifyPoison) then
-                            hasPoisonDebuff = false;
-                        end
-                    end
-
-                    j = j + 1;
-                end
-            end
-
-            debuffTexture = "foo";
+            debuffName = "foo";
             j = 1;
 
-            while (debuffTexture) do
+            while (debuffName) do
+                debuffName, debuffRank, debuffTexture, debuffApplications,
+                debuffType, debuffDuration, debuffTimeLeft, debuffMine,
+                debuffStealable = UnitDebuff(nextPet, j);
+
+                if (debuffName and
+                    not strfind(debuffName, "Cripple") and
+                    debuffType and strfind(debuffType, "Magic") and
+                    not (UnitClass("player") == "Mage" or
+                    UnitClass("player") == "Shaman")) then
+                    hasMagicDebuff = true;
+                    debuffPlayer = nextPet;
+                end
+
+                if (debuffName and debuffType and
+                    strfind(debuffType, "Disease") and
+                    not (UnitClass("player") == "Druid" or
+                    UnitClass("player") == "Mage")) then
+                    hasDiseaseDebuff = true;
+                    debuffPlayer = nextPet;
+
+                    --
+                    -- NullifyDisease check
+                    --
+                    hasNullifyDisease, myNullifyDisease,
+                    numNullifyDisease = btp_check_buff("NullifyDisease",
+                                                       debuffPlayer);
+
+                    if (hasNullifyDisease) then
+                        hasDiseaseDebuff = false;
+                    end
+                end
+
+                if (debuffName and debuffType and
+                    strfind(debuffType, "Curse") and
+                    not (UnitClass("player") == "Priest" or
+                    UnitClass("player") == "Paladin" or
+                    UnitClass("player") == "Shaman")) then
+                    hasCurseDebuff = true;
+                    debuffPlayer = nextPet;
+                end
+
+                if (debuffName and debuffType and
+                    strfind(debuffType, "Poison") and
+                    not (UnitClass("player") == "Priest" or
+                    UnitClass("player") == "Mage")) then
+                    hasPoisonDebuff = true;
+                    debuffPlayer = nextPet;
+
+                    --
+                    -- NullifyPoison check
+                    --
+                    hasNullifyPoison, myNullifyPoison,
+                    numNullifyPoison = btp_check_buff("NullifyPoison",
+                                                      debuffPlayer);
+
+                    if (hasNullifyPoison) then
+                        hasPoisonDebuff = false;
+                    end
+                end
+
+                j = j + 1;
+            end
+        end
+    end
+
+    for nextPlayer in btp_iterate_group_members() do
+        if (btp_check_dist(nextPlayer, 1)) then
+            debuffName = "foo";
+            j = 1;
+
+            while (debuffName) do
                 --
                 -- Players are more important
                 --
@@ -768,7 +779,7 @@ function BTP_Decursive()
                 debuffType, debuffDuration, debuffTimeLeft, debuffMine,
                 debuffStealable = UnitDebuff(nextPlayer, j);
 
-                if (debuffTexture and not strfind(debuffTexture, "Cripple") and
+                if (debuffName and not strfind(debuffName, "Cripple") and
                     debuffType and strfind(debuffType, "Magic") and
                     not (UnitClass("player") == "Mage" or
                     UnitClass("player") == "Shaman")) then
@@ -777,7 +788,7 @@ function BTP_Decursive()
                     break;
                 end
 
-                if (debuffTexture and debuffType and
+                if (debuffName and debuffType and
                     strfind(debuffType, "Disease") and
                     not (UnitClass("player") == "Druid" or
                     UnitClass("player") == "Mage")) then
@@ -800,7 +811,7 @@ function BTP_Decursive()
                     end
                 end
 
-                if (debuffTexture and debuffType and
+                if (debuffName and debuffType and
                     strfind(debuffType, "Curse") and
                     not (UnitClass("player") == "Priest" or
                     UnitClass("player") == "Paladin" or
@@ -810,7 +821,7 @@ function BTP_Decursive()
                     break;
                 end
 
-                if (debuffTexture and debuffType and
+                if (debuffName and debuffType and
                     strfind(debuffType, "Poison") and
                     not (UnitClass("player") == "Priest" or
                     UnitClass("player") == "Mage")) then
@@ -838,170 +849,10 @@ function BTP_Decursive()
         end
     end
 
-    if (GetNumRaidMembers() <= 0) then
-        for i = 1, GetNumPartyMembers() do
-            nextPlayer = "party" .. i;
-
-            if (btp_check_dist(nextPlayer, 1)) then
-                if (UnitExists("partypet" .. i) and
-                    btp_check_dist("partypet" .. i, 1)) then
-
-                    debuffTexture = "foo";
-                    j = 1;
-
-                    while (debuffTexture) do
-                        debuffName, debuffRank, debuffTexture,
-                        debuffApplications, debuffType, debuffDuration,
-                        debuffTimeLeft, debuffMine,
-                        debuffStealable = UnitDebuff("partypet" .. i, j);
-
-                        if (debuffTexture and
-                            not strfind(debuffTexture, "Cripple") and
-                            debuffType and strfind(debuffType, "Magic") and
-                            not (UnitClass("player") == "Mage" or 
-                            UnitClass("player") == "Shaman")) then
-                            hasMagicDebuff = true;
-                            debuffPlayer = "partypet" .. i;
-                        end
-
-                        if (debuffTexture and debuffType and
-                            strfind(debuffType, "Disease") and
-                            not (UnitClass("player") == "Druid" or
-                            UnitClass("player") == "Mage")) then
-                            hasDiseaseDebuff = true;
-                            debuffPlayer = "partypet" .. i;
-
-                            --
-                            -- NullifyDisease check
-                            --
-                            hasNullifyDisease, myNullifyDisease,
-                            numNullifyDisease = btp_check_buff("NullifyDisease",
-                                                               debuffPlayer);
-
-                            if (hasNullifyDisease) then
-                                hasDiseaseDebuff = false;
-                            end
-                        end
-
-                        if (debuffTexture and debuffType and
-                            strfind(debuffType, "Curse") and
-                            not (UnitClass("player") == "Priest" or
-                            UnitClass("player") == "Paladin" or
-                            UnitClass("player") == "Shaman")) then
-                            hasCurseDebuff = true;
-                            debuffPlayer = "partypet" .. i;
-                        end
-
-                        if (debuffTexture and debuffType and
-                            strfind(debuffType, "Poison") and
-                            not (UnitClass("player") == "Priest" or
-                            UnitClass("player") == "Mage")) then
-                            hasPoisonDebuff = true;
-                            debuffPlayer = "partypet" .. i;
-
-                            --
-                            -- NullifyPoison check
-                            --
-                            hasNullifyPoison, myNullifyPoison,
-                            numNullifyPoison = btp_check_buff("NullifyPoison",
-                                                              debuffPlayer);
-
-                            if (hasNullifyPoison) then
-                                hasPoisonDebuff = false;
-                            end
-                        end
-
-                        j = j + 1;
-                    end
-                end
-
-                debuffTexture = "foo";
-                j = 1;
-
-                while (debuffTexture) do
-                    --
-                    -- Players are more important
-                    --
-                    debuffName, debuffRank, debuffTexture, debuffApplications,
-                    debuffType, debuffDuration, debuffTimeLeft, debuffMine,
-                    debuffStealable = UnitDebuff(nextPlayer, j);
-
-                    if (debuffTexture and
-                        not strfind(debuffTexture, "Cripple") and
-                        debuffType and strfind(debuffType, "Magic") and
-                        not (UnitClass("player") == "Mage" or
-                        UnitClass("player") == "Shaman")) then
-                        hasMagicDebuff = true;
-                        debuffPlayer = nextPlayer;
-                        break;
-                    end
-
-                    if (debuffTexture and debuffType and
-                        strfind(debuffType, "Disease") and
-                        not (UnitClass("player") == "Druid" or
-                        UnitClass("player") == "Mage")) then
-                        hasDiseaseDebuff = true;
-                        debuffPlayer = nextPlayer;
-
-                        --
-                        -- NullifyDisease check
-                        --
-                        hasNullifyDisease, myNullifyDisease,
-                        numNullifyDisease = btp_check_buff("NullifyDisease",
-                                                           debuffPlayer);
-
-                        if (hasNullifyDisease) then
-                            hasDiseaseDebuff = false;
-                        end
-
-                        if (hasDiseaseDebuff) then
-                            break;
-                        end
-                    end
-
-                    if (debuffTexture and debuffType and
-                        strfind(debuffType, "Curse") and
-                        not (UnitClass("player") == "Priest" or
-                        UnitClass("player") == "Paladin" or
-                        UnitClass("player") == "Shaman")) then
-                        hasCurseDebuff = true;
-                        debuffPlayer = nextPlayer;
-                        break;
-                    end
-
-                    if (debuffTexture and debuffType and
-                        strfind(debuffType, "Poison") and
-                        not (UnitClass("player") == "Priest" or
-                        UnitClass("player") == "Mage")) then
-                        hasPoisonDebuff = true;
-                        debuffPlayer = nextPlayer;
-
-                        --
-                        -- NullifyPoison check
-                        --
-                        hasNullifyPoison, myNullifyPoison,
-                        numNullifyPoison = btp_check_buff("NullifyPoison",
-                                                          debuffPlayer);
-
-                        if (hasNullifyPoison) then
-                            hasPoisonDebuff = false;
-                        end
-
-                        if (hasPoisonDebuff) then
-                            break;
-                        end
-                    end
-
-                    j = j + 1;
-                end
-            end
-        end
-    end
-
-    debuffTexture = "foo";
+    debuffName = "foo";
     i = 1;
 
-    while (debuffTexture) do
+    while (debuffName) do
         --
         -- our pet
         --
@@ -1009,7 +860,7 @@ function BTP_Decursive()
         debuffType, debuffDuration, debuffTimeLeft, debuffMine,
         debuffStealable = UnitDebuff("pet", i);
 
-        if (debuffTexture and not strfind(debuffTexture, "Cripple") and
+        if (debuffName and not strfind(debuffName, "Cripple") and
             debuffType and strfind(debuffType, "Magic") and
             not (UnitClass("player") == "Mage" or
             UnitClass("player") == "Shaman")) then
@@ -1018,7 +869,7 @@ function BTP_Decursive()
             break;
         end
 
-        if (debuffTexture and debuffType and
+        if (debuffName and debuffType and
             strfind(debuffType, "Disease") and
             not (UnitClass("player") == "Druid" or
             UnitClass("player") == "Mage")) then
@@ -1041,7 +892,7 @@ function BTP_Decursive()
             end
         end
 
-        if (debuffTexture and debuffType and
+        if (debuffName and debuffType and
             strfind(debuffType, "Curse") and
             not (UnitClass("player") == "Priest" or
             UnitClass("player") == "Paladin" or
@@ -1051,7 +902,7 @@ function BTP_Decursive()
             break;
         end
 
-        if (debuffTexture and debuffType and
+        if (debuffName and debuffType and
             strfind(debuffType, "Poison") and
             not (UnitClass("player") == "Priest" or
             UnitClass("player") == "Mage")) then
@@ -1076,10 +927,10 @@ function BTP_Decursive()
         i = i + 1;
     end
 
-    debuffTexture = "foo";
+    debuffName = "foo";
     i = 1;
 
-    while (debuffTexture) do
+    while (debuffName) do
         --
         -- I am more important
         --
@@ -1087,7 +938,7 @@ function BTP_Decursive()
         debuffType, debuffDuration, debuffTimeLeft, debuffMine,
         debuffStealable = UnitDebuff("player", i);
 
-        if (debuffTexture and not strfind(debuffTexture, "Cripple") and
+        if (debuffName and not strfind(debuffName, "Cripple") and
             debuffType and strfind(debuffType, "Magic") and
             not (UnitClass("player") == "Mage" or
             UnitClass("player") == "Shaman")) then
@@ -1096,7 +947,7 @@ function BTP_Decursive()
             break;
         end
 
-        if (debuffTexture and debuffType and
+        if (debuffName and debuffType and
             strfind(debuffType, "Disease") and
             not (UnitClass("player") == "Druid" or
             UnitClass("player") == "Mage")) then
@@ -1118,7 +969,7 @@ function BTP_Decursive()
             end
         end
 
-        if (debuffTexture and debuffType and
+        if (debuffName and debuffType and
             strfind(debuffType, "Curse") and
             not (UnitClass("player") == "Priest" or
             UnitClass("player") == "Paladin" or
@@ -1128,7 +979,7 @@ function BTP_Decursive()
             break;
         end
 
-        if (debuffTexture and debuffType and
+        if (debuffName and debuffType and
             strfind(debuffType, "Poison") and
             not (UnitClass("player") == "Priest" or
             UnitClass("player") == "Mage")) then
@@ -3400,6 +3251,7 @@ end
 --     stackNum:     Number of debuffs in the stack if myDebuff is true,
 --                   otherwise this returns the sum of all debuffs of
 --                   this type and their stack numbers.
+--     dispelType:   Curse, Disease, Magic, Poison
 --
 function btp_check_debuff(buff, unit)
     local i = 1;
@@ -3423,7 +3275,7 @@ function btp_check_debuff(buff, unit)
 
         if (debuffName and source == "player" and
             strfind(debuffName, buff)) then
-            return true, true, debuffCount, (expirationTime - GetTime());
+            return true, true, debuffCount, (expirationTime - GetTime()), dispelType;
         elseif (debuffName and strfind(debuffName, buff)) then
             hasDebuff = true;
             stackNum = stackNum + debuffCount;
@@ -3433,9 +3285,9 @@ function btp_check_debuff(buff, unit)
     end
 
     if (hasDebuff) then
-        return true, false, stackNum, (expirationTime - GetTime());
+        return true, false, stackNum, (expirationTime - GetTime()), dispelType;
     else
-        return false, false, 0, 0;
+        return false, false, 0, 0, nil;
     end
 end
 
@@ -3713,6 +3565,14 @@ function btp_health_status(thresh, raidHeal)
     party_status[7] = 0;
     party_status[8] = 0;
 
+    if (UnitClass("player") == "Druid") then
+        spell = "Healing Touch";
+    elseif (UnitClass("player") == "Priest") then
+        spell = "Heal";
+    elseif (UnitClass("player") == "") then
+        spell = "Heal";
+    end
+
     for nextPlayer in btp_iterate_group_members() do
         cur_health     = UnitHealth(nextPlayer);
         cur_health_max = UnitHealthMax(nextPlayer);
@@ -3720,10 +3580,12 @@ function btp_health_status(thresh, raidHeal)
         cur_threat     = UnitThreatSituation(nextPlayer);
         cur_percent    = cur_health / cur_health_max;
 
-        if(cur_percent <= thresh and cur_health >= 5 and
-           btp_check_dist(nextPlayer, 1)) then
+        if (cur_percent <= thresh and cur_health >= 5 and
+            btp_in_range(spell, nextPlayer)) then
+                index = UnitInRaid(nextPlayer);
+                if (index == nil) then index = 1; end
                 name, rank, subgroup, level, class, fileName, zone, online,
-                isDead, role, isML = GetRaidRosterInfo(i + 1);
+                isDead, role, isML, combatRole = GetRaidRosterInfo(index);
 
                 raid_cnt                   = raid_cnt + 1;
                 party_cnt                  = party_cnt + 1;
@@ -3744,15 +3606,17 @@ function btp_health_status(thresh, raidHeal)
                 cur_class      = UnitClass(nextPlayer);
                 cur_percent    = cur_health / cur_health_max;
 
-                if(cur_health/cur_health_max <= thresh and
-                   cur_health >= 2 and btp_check_dist(nextPlayer, 1) and
-                   pval and UnitName(nextPlayer) and
-                   string.lower(UnitName(nextPlayer)) == string.lower(pval)) then
-                    name, rank, subgroup, level, class, fileName, zone, online,
-                    isDead, role, isML = GetRaidRosterInfo(i + 1);
+                if (cur_health/cur_health_max <= thresh and
+                    cur_health >= 2 and btp_in_range(spell, nextPlayer) and
+                    pval and UnitName(nextPlayer) and
+                    string.lower(UnitName(nextPlayer)) == string.lower(pval)) then
 
-                    return nextPlayer, party_cnt, raid_cnt,
-                           party_status[subgroup];
+                    index = UnitInRaid(nextPlayer);
+                    if (index == nil) then index = 1; end
+                    name, rank, subgroup, level, class, fileName, zone, online,
+                    isDead, role, isML, combatRole = GetRaidRosterInfo(index);
+
+                    return nextPlayer, party_cnt, raid_cnt, party_status[subgroup];
                 end
             end
         end
@@ -3797,15 +3661,17 @@ function btp_health_status(thresh, raidHeal)
            end
         end
 
+        index = UnitInRaid(nextPlayer);
+        if (index == nil) then index = 1; end
         name, rank, subgroup, level, class, fileName, zone, online,
-        isDead, role, isML = GetRaidRosterInfo(i + 1);
+        isDead, role, isML, combatRole = GetRaidRosterInfo(index);
 
-        if(not skipPlayer and cur_percent <= thresh and
-           cur_health >= 5 and btp_check_dist(nextPlayer, 1)) then
+        if (not skipPlayer and cur_percent <= thresh and
+            cur_health >= 5 and btp_in_range(spell, nextPlayer)) then
 
             -- Tanking
-            if(cur_threat ~= nil and cur_threat > 1) then
-                if(cur_heal_percent > cur_percent) then
+            if (cur_threat ~= nil and cur_threat > 1) then
+                if (cur_heal_percent > cur_percent) then
                     cur_heal         = nextPlayer;
                     cur_priority     = 100;
                     cur_heal_percent = cur_percent;
@@ -3814,12 +3680,13 @@ function btp_health_status(thresh, raidHeal)
             end
 
             -- second in line are potential healers
-            if(cur_class == "Priest" or 
-               cur_class == "Druid" or
-               cur_class == "Paladin" or
-               cur_class == "Shaman") then
-                if(cur_priority <= 75 and
-                   cur_heal_percent > cur_percent) then
+            if (cur_class == "Priest" or 
+                cur_class == "Druid" or
+                cur_class == "Paladin" or
+                cur_class == "Shaman") then
+
+                if (cur_priority <= 75 and
+                    cur_heal_percent > cur_percent) then
                     cur_heal         = nextPlayer;
                     cur_priority     = 75;
                     cur_heal_percent = cur_percent;
@@ -3828,71 +3695,72 @@ function btp_health_status(thresh, raidHeal)
             end
             
             -- dps classes all get the same
-            if(cur_priority <= 50 and
-               cur_heal_percent > cur_percent) then
+            if (cur_priority <= 50 and
+                cur_heal_percent > cur_percent) then
                 cur_heal         = nextPlayer;
                 cur_priority     = 50;
                 cur_heal_percent = cur_percent;
                 cur_subgroup     = subgroup;
             end
         end
-
-        -- check raid pets lowest priority
-        -- if(UnitExists("raidpet" .. i)) then
-        --     nextPet        = "raidpet" .. i;
-        --     pet_health     = UnitHealth(nextPet);
-        --     pet_health_max = UnitHealthMax(nextPet);
-        --     pet_threat     = UnitThreatSituation(nextPet);
-        --     pet_percent    = pet_health / pet_health_max;
-
-        --     if (raidHeal and pet_threat ~= nil and pet_threat < 2) then
-        --        skipPlayer = false;
-
-        --        --
-        --        -- Rejuvination check
-        --        --
-        --        hasRejuvenation, myRejuvenation,
-        --        numRejuvenation, expRejuvination = btp_check_buff("Rejuvenation", nextPet);
-
-        --        --
-        --        -- Regrowth check
-        --        --
-        --        hasRegrowth, myRegrowth,
-        --        numRegrowth, expRegrowth = btp_check_buff("Regrowth", nextPet);
-
-        --        --
-        --        -- Renew check
-        --        --
-        --        hasRenew, myRenew,
-        --        numRenew, expRenew = btp_check_buff("Renew", nextPet);
-
-        --        if (hasRejuvenation or hasRegrowth or hasRenew) then
-        --            skipPlayer = true;
-        --        end
-        --     end
-
-        --     if(not skipPlayer and pet_percent <= thresh and
-        --        pet_health > 5 and btp_check_dist(nextPet, 1)) then
-        --         if(cur_priority <= 20 and pet_threat ~= nil and
-        --            pet_threat > 1 and cur_heal_percent > pet_percent) then
-        --             cur_heal         = nextPet;
-        --             cur_priority     = 20;
-        --             cur_heal_percent = pet_percent;
-        --             cur_subgroup     = subgroup;
-        --         end
-
-        --         if(cur_priority <= 10 and
-        --            cur_heal_percent > pet_percent) then
-        --             cur_heal         = nextPet;
-        --             cur_priority     = 10;
-        --             cur_heal_percent = pet_percent;
-        --             cur_subgroup     = subgroup;
-        --         end
-        --     end
-        -- end
     end
 
-    if(cur_heal ~= nil) then
+    -- check raid pets lowest priority
+    for nextPet in btp_iterate_group_pets() do
+        if (UnitExists(nextPet) and btp_in_range(spell, nextPet)) then
+            pet_health     = UnitHealth(nextPet);
+            pet_health_max = UnitHealthMax(nextPet);
+            pet_threat     = UnitThreatSituation(nextPet);
+            pet_percent    = pet_health / pet_health_max;
+
+            if (raidHeal and pet_threat ~= nil and pet_threat < 2) then
+               skipPlayer = false;
+
+               --
+               -- Rejuvination check
+               --
+               hasRejuvenation, myRejuvenation,
+               numRejuvenation, expRejuvination = btp_check_buff("Rejuvenation", nextPet);
+
+               --
+               -- Regrowth check
+               --
+               hasRegrowth, myRegrowth,
+               numRegrowth, expRegrowth = btp_check_buff("Regrowth", nextPet);
+
+               --
+               -- Renew check
+               --
+               hasRenew, myRenew,
+               numRenew, expRenew = btp_check_buff("Renew", nextPet);
+
+               if (hasRejuvenation or hasRegrowth or hasRenew) then
+                   skipPlayer = true;
+               end
+            end
+
+            if (not skipPlayer and pet_percent <= thresh and
+                pet_health > 5 and btp_in_range(spell, nextPet)) then
+                if (cur_priority <= 20 and pet_threat ~= nil and
+                    pet_threat > 1 and cur_heal_percent > pet_percent) then
+                    cur_heal         = nextPet;
+                    cur_priority     = 20;
+                    cur_heal_percent = pet_percent;
+                    cur_subgroup     = subgroup;
+                end
+
+                if (cur_priority <= 10 and
+                    cur_heal_percent > pet_percent) then
+                    cur_heal         = nextPet;
+                    cur_priority     = 10;
+                    cur_heal_percent = pet_percent;
+                    cur_subgroup     = subgroup;
+                end
+            end
+        end
+    end
+
+    if (cur_heal ~= nil) then
         return cur_heal, party_cnt, raid_cnt, party_status[cur_subgroup];
     end
 
@@ -3924,6 +3792,9 @@ function btp_bot_new()
     if (UnitClass("player") == "Priest") then
         btp_priest_heal();
         PriestBuff();
+    elseif (UnitClass("player") == "Druid") then
+        druid_heal();
+        druid_buff();
     end
 
 end
@@ -4431,7 +4302,9 @@ function btp_bot()
       bag = bag - 1;
     end
 
-    for i=1, GetNumCompanions("MOUNT") do
+    mounts = GetNumCompanions("MOUNT");
+    if (mounts == nil) then mounts = 0; end
+    for i=1, mounts do
         creatureID, creatureName, creatureSpellID, 
         icon, issummoned = GetCompanionInfo("MOUNT", i);
         if(creatureID ~= nil) then
@@ -4467,7 +4340,7 @@ function btp_bot()
     --
     -- Just Load these because we need the data in memory.
     --
-    SetMapToCurrentZone();
+    -- SetMapToCurrentZone();
 
     --
     -- Trying to move some of the bot code around BGs out of this HUGE function.
@@ -4488,79 +4361,19 @@ function btp_bot()
         return true;
     end
 
-    -- Mage Code for WATERBREAK
-    cur_mana = UnitPower("player")/UnitPowerMax("player");
-    if(not dontBeg and UnitClass("player") == "Mage") then
-	    dontHearth = true;
+    if (GetNumGroupMembers() > 0 or pvpBot) then
+        -- if (GetNumBattlefieldScores() <= 0) then
+        --     for i=1, MAX_BATTLEFIELD_QUEUES do
+        --              status, mapName, instanceID = GetBattlefieldStatus(i);
+        --             if (status == "confirm") then
+        --                     AcceptBattlefieldPort(i,1);
+        --                     StaticPopup_Hide("CONFIRM_BATTLEFIELD_ENTRY");
+        --             end
+        --     end
+        -- end
 
-        local bag = 4
-        while (bag >= 0) do
-          for slot=1,C_Container.GetContainerNumSlots(bag) do
-            if (C_Container.GetContainerItemLink(bag,slot)) then
-                --
-                -- XXX: Add new alcohol
-                --
-                if (string.find(C_Container.GetContainerItemLink(bag,slot),
-                                "Conjured Glacier Water")) then
-                    hasWater = true;
-                    waterBag = bag;
-                    waterSlot = slot;
-		    -- btp_frame_debug("Found Water " .. bag .. " " .. slot);
-                end
-            end
-          end
-          bag = bag - 1;
-	end
-
-        -- if (hasWater and (GetTime() - lastBooze) >= 30) then
-        if (cur_mana < .30) then
-		-- btp_frame_debug("take a drink");
-        	FuckBlizUseContainerItem(waterBag, waterSlot);
-		onMount = false;
-        	mageisDrinking = true;
-		return true;
-	elseif (mageisDrinking ~= false and cur_mana > .80) then
-		-- btp_frame_debug("done drinking");
-		mageisDrinking = false;
-		onMount = false;
-        end
-
-	if(not onMount and not mageisDrinking and cur_mana >= .99
-            and (UnitPower("player")/UnitPowerMax("player") <= .3)) then
-        	-- FuckBlizUseContainerItem(mountBag,mountSlot);
-		CallCompanion("MOUNT", mountSlot);
-		onMount = true;
-	end
-    end
-
-
-    if(not dontBeg and WATERBREAK_USER ~= nil and WATERBREAK_USER ~= "" and
-       WATERBREAK_USER ~= false and UnitClass("player") == "Mage") then
-	    if(not isDrinking) then
-            btp_mage_waterbreak_trade(WATERBREAK_USER);
-        	FuckBlizzardByName("WATERBREAK");
-    	end
-
-    	AcceptTrade();
-    end
-    -- End WATERBREAK
-
-
-    if (GetNumPartyMembers() > 0 or
-        GetNumRaidMembers() > 0 or pvpBot) then
-        if (GetNumBattlefieldScores() <= 0) then
-            for i=1, MAX_BATTLEFIELD_QUEUES do
-                     status, mapName, instanceID = GetBattlefieldStatus(i);
-                    if (status == "confirm") then
-                            AcceptBattlefieldPort(i,1);
-                            StaticPopup_Hide("CONFIRM_BATTLEFIELD_ENTRY");
-                    end
-            end
-        end
-
-        for i = 1, GetNumRaidMembers() do
-            nextPlayer = "raid" .. i;
-
+        for nextPlayer in btp_iterate_group_members() do
+            -- btp_frame_debug("Next Player: " .. nextPlayer);
             if (manualFollow and
                 manualFollowName == UnitName(nextPlayer)) then
 
@@ -4572,6 +4385,7 @@ function btp_bot()
                 break;
             elseif (btp_is_guild_member(UnitName(nextPlayer)) and
                     UnitName("player") ~= UnitName(nextPlayer)) then
+                -- btp_frame_debug("Follow Player: " .. followPlayer);
 
                 if (not btp_dont_follow(name) and
                     btp_check_dist(nextPlayer, 4)) then
@@ -4582,118 +4396,117 @@ function btp_bot()
             end
         end
 
-        if (GetNumRaidMembers() <= 0) then
-            for i = 1, GetNumPartyMembers() do
-                nextPlayer = "party" .. i;
+        -- if (GetNumRaidMembers() <= 0) then
+        --     for i = 1, GetNumPartyMembers() do
+        --         nextPlayer = "party" .. i;
 
-                if (manualFollow and
-                    manualFollowName == UnitName(nextPlayer)) then
+        --         if (manualFollow and
+        --             manualFollowName == UnitName(nextPlayer)) then
 
-                    if (btp_check_dist(nextPlayer, 4)) then
-                        followPlayer = nextPlayer;
-                    end
+        --             if (btp_check_dist(nextPlayer, 4)) then
+        --                 followPlayer = nextPlayer;
+        --             end
 
-                    partyOK = true;
-                    break;
-                elseif (btp_is_guild_member(UnitName(nextPlayer)) and
-                        UnitName("player") ~= UnitName(nextPlayer)) then
+        --             partyOK = true;
+        --             break;
+        --         elseif (btp_is_guild_member(UnitName(nextPlayer)) and
+        --                 UnitName("player") ~= UnitName(nextPlayer)) then
 
-                   if (not btp_dont_follow(name) and
-                       btp_check_dist(nextPlayer, 4)) then
-                       followPlayer = nextPlayer;
-                   end
+        --            if (not btp_dont_follow(name) and
+        --                btp_check_dist(nextPlayer, 4)) then
+        --                followPlayer = nextPlayer;
+        --            end
 
-                   partyOK = true;
-                end
-            end
-        end
+        --            partyOK = true;
+        --         end
+        --     end
+        -- end
 
         --
         -- Choose the next person to follow if there is no guild member
         -- around.  A bunch of stuff happens here, but notice the priority
         -- on those people that have done more damage.
         --
-        if (pvpBot and followPlayer == "player") then
-            partyOK = true;
-            bestDamage = 0;
+        -- if (pvpBot and followPlayer == "player") then
+        --     partyOK = true;
+        --     bestDamage = 0;
 
-            for i = GetNumRaidMembers() - 1, 1, -1 do
-                nextPlayer = "raid" .. i;
+        --     for i = GetNumRaidMembers() - 1, 1, -1 do
+        --         nextPlayer = "raid" .. i;
 
-                if (btp_check_dist(nextPlayer, 4) and
-                    not btp_dont_follow(UnitName(nextPlayer)) and
-                   ((bgStats[UnitName(nextPlayer)] ~= nil and
-                    bgStats[UnitName(nextPlayer)]["dd"] >= bestDamage) or
-                   (farmDungeon and
-                   (UnitGroupRolesAssigned(nextPlayer) == "DAMAGER" or
-                    UnitGroupRolesAssigned(nextPlayer) == "HEALER" or
-                    UnitGroupRolesAssigned(nextPlayer) == "TANK"))) and
-                   ((UnitHealth("player") < 2 and UnitHealth(nextPlayer) < 2) or
-                   (UnitHealth("player") >= 2 and
-                   UnitHealth(nextPlayer) >= 2))) then
+        --         if (btp_check_dist(nextPlayer, 4) and
+        --             not btp_dont_follow(UnitName(nextPlayer)) and
+        --            ((bgStats[UnitName(nextPlayer)] ~= nil and
+        --             bgStats[UnitName(nextPlayer)]["dd"] >= bestDamage) or
+        --            (farmDungeon and
+        --            (UnitGroupRolesAssigned(nextPlayer) == "DAMAGER" or
+        --             UnitGroupRolesAssigned(nextPlayer) == "HEALER" or
+        --             UnitGroupRolesAssigned(nextPlayer) == "TANK"))) and
+        --            ((UnitHealth("player") < 2 and UnitHealth(nextPlayer) < 2) or
+        --            (UnitHealth("player") >= 2 and
+        --            UnitHealth(nextPlayer) >= 2))) then
 
-                    if (bgStats[UnitName(nextPlayer)] ~= nil) then
-                        bestDamage = bgStats[UnitName(nextPlayer)]["dd"];
-                    end
+        --             if (bgStats[UnitName(nextPlayer)] ~= nil) then
+        --                 bestDamage = bgStats[UnitName(nextPlayer)]["dd"];
+        --             end
 
-                    followPlayer = nextPlayer;
+        --             followPlayer = nextPlayer;
 
-                    if (farmDungeon and
-                        UnitGroupRolesAssigned(nextPlayer) == "TANK") then
-                        break;
-                    end
-                end
-            end
+        --             if (farmDungeon and
+        --                 UnitGroupRolesAssigned(nextPlayer) == "TANK") then
+        --                 break;
+        --             end
+        --         end
+        --     end
 
-            if (GetNumRaidMembers() <= 0) then
-                for i = GetNumPartyMembers() - 1, 1, -1 do
-                    nextPlayer = "party" .. i;
+        --     if (GetNumRaidMembers() <= 0) then
+        --         for i = GetNumPartyMembers() - 1, 1, -1 do
+        --             nextPlayer = "party" .. i;
 
-                    if (btp+btp_check_dist(nextPlayer, 4) and
-                        not btp_dont_follow(UnitName(nextPlayer)) and
-                       ((bgStats[UnitName(nextPlayer)] ~= nil and
-                        bgStats[UnitName(nextPlayer)]["dd"] >= bestDamage) or
-                        (farmDungeon and
-                        (UnitGroupRolesAssigned(nextPlayer) == "DAMAGER" or
-                         UnitGroupRolesAssigned(nextPlayer) == "HEALER" or
-                         UnitGroupRolesAssigned(nextPlayer) == "TANK"))) and
-                       ((UnitHealth("player") < 2 and
-                         UnitHealth(nextPlayer) < 2) or
-                       (UnitHealth("player") >= 2 and
-                        UnitHealth(nextPlayer) >= 2))) then
+        --             if (btp+btp_check_dist(nextPlayer, 4) and
+        --                 not btp_dont_follow(UnitName(nextPlayer)) and
+        --                ((bgStats[UnitName(nextPlayer)] ~= nil and
+        --                 bgStats[UnitName(nextPlayer)]["dd"] >= bestDamage) or
+        --                 (farmDungeon and
+        --                 (UnitGroupRolesAssigned(nextPlayer) == "DAMAGER" or
+        --                  UnitGroupRolesAssigned(nextPlayer) == "HEALER" or
+        --                  UnitGroupRolesAssigned(nextPlayer) == "TANK"))) and
+        --                ((UnitHealth("player") < 2 and
+        --                  UnitHealth(nextPlayer) < 2) or
+        --                (UnitHealth("player") >= 2 and
+        --                 UnitHealth(nextPlayer) >= 2))) then
 
-                        if (bgStats[UnitName(nextPlayer)] ~= nil) then
-                            bestDamage = bgStats[UnitName(nextPlayer)]["dd"];
-                        end
+        --                 if (bgStats[UnitName(nextPlayer)] ~= nil) then
+        --                     bestDamage = bgStats[UnitName(nextPlayer)]["dd"];
+        --                 end
 
-                        followPlayer = nextPlayer;
+        --                 followPlayer = nextPlayer;
 
-                        if (farmDungeon and
-                            UnitGroupRolesAssigned(nextPlayer) == "TANK") then
-                            break;
-                        end
-                    end
-                end
-            end
+        --                 if (farmDungeon and
+        --                     UnitGroupRolesAssigned(nextPlayer) == "TANK") then
+        --                     break;
+        --                 end
+        --             end
+        --         end
+        --     end
 
-            --
-            -- This looks fucked up, but it is here to allow the bot
-            -- to mount up when there is no one around.  That way when
-            -- a player rides by it can quickly tag on and follow while
-            -- mounted.
-            --
-            if (UnitName(followPlayer) ~= UnitName("player")) then
-                targetOnMount = false;
-            else
-                targetOnMount = true;
-            end
-        end
+        --     --
+        --     -- This looks fucked up, but it is here to allow the bot
+        --     -- to mount up when there is no one around.  That way when
+        --     -- a player rides by it can quickly tag on and follow while
+        --     -- mounted.
+        --     --
+        --     if (UnitName(followPlayer) ~= UnitName("player")) then
+        --         targetOnMount = false;
+        --     else
+        --         targetOnMount = true;
+        --     end
+        -- end
 
         if (partyOK) then
             lastInParty = GetTime();
 
-            buffTexture = "foo";
-            i = 1;
+            -- i = 1;
 
             if (btp_is_mounted_ground("player")) then
                 playerOnMount = true;
@@ -4787,8 +4600,8 @@ function btp_bot()
 
             if ((GetTime() - lastSummon) >= 60) then
                 lastSummon = GetTime();
-                ConfirmSummon();
-            elseif (IsPartyLeader() and UnitName(followPlayer) and
+                C_SummonInfo.ConfirmSummon();
+            elseif (UnitIsGroupLeader("player") and UnitName(followPlayer) and
                     not btp_dont_follow(UnitName(followPlayer))) then
                 PromoteToLeader(followPlayer);
             elseif (hasWater and (GetTime() - lastBotWater) >= 5 and
@@ -4876,23 +4689,10 @@ function btp_bot()
                 charname, guildname, level, race, class, zone,
                 unknown = GetWhoInfo(1);                      
 
-                for j = 1, GetNumRaidMembers() do
-                    nextPlayer = "raid" .. j;
-
+                for nextPlayer in btp_iterate_group_members() do
                     if (bootyName == UnitName(nextPlayer)) then
                         unitid = nextPlayer;
                         break;
-                    end
-                end
-
-                if (GetNumRaidMembers() <= 0) then
-                    for j = 1, GetNumPartyMembers() do
-                        nextPlayer = "party" .. j;
-
-                        if (bootyName == UnitName(nextPlayer)) then
-                            unitid = nextPlayer;
-                            break;
-                        end
                     end
                 end
 
@@ -6079,13 +5879,13 @@ function btp_has_magic_immune_shield(unit)
     -- Mage Ice Block
     --
     hasIceBlock, myIceBlock,
-    numIceBlock = btp_check_buff("Frost_Frost", unit);
+    numIceBlock = btp_check_buff("Ice Block", unit);
 
     --
     -- Pally Divine Shield
     --
     hasDivineInt, myDivineInt,
-    numDivineInt = btp_check_buff("DivineIntervention", unit);
+    numDivineInt = btp_check_buff("Divine Intervention", unit);
 
     return (hasIceBlock or hasDivineInt);
 end
@@ -6099,13 +5899,13 @@ function btp_has_physical_immune_shield(unit)
     -- Mage Ice Block
     --
     hasIceBlock, myIceBlock,
-    numIceBlock = btp_check_buff("Frost_Frost", unit);
+    numIceBlock = btp_check_buff("Ice Block", unit);
 
     --
     -- Pally Divine Shield
     --
     hasDivineInt, myDivineInt,
-    numDivineInt = btp_check_buff("DivineIntervention", unit);
+    numDivineInt = btp_check_buff("Divine Intervention", unit);
 
     return (hasIceBlock or hasDivineInt);
 end
@@ -6125,24 +5925,24 @@ function btp_has_magic_absorb_shield(unit)
     end
 
     --
-    -- Mage Ice Shield
+    -- Mage: Ice Shield
     --
     hasIceBarrier, myIceBarrier,
-    numIceBarrier = btp_check_buff("Ice_Lament", unit);
+    numIceBarrier = btp_check_buff("Ice Barrier", unit);
 
     --
-    -- Priest Shield
+    -- Priest: Power Word: Shield
     --
     hasPowerWordShield, myPowerWordShield,
-    numPowerWordShield = btp_check_buff("Ice_Lament", unit);
+    numPowerWordShield = btp_check_buff("Power Word: Shield", unit);
 
     --
-    -- Warlock Shadow Ward
+    -- Warlock: Shadow Ward
     --
-    hasIceBarrier, myIceBarrier,
-    numIceBarrier = btp_check_buff("Ice_Lament", unit);
+    hasShadowWard, myShadowWard,
+    numShadowWard = btp_check_buff("Shadow Ward", unit);
 
-    return (hasIceShield);
+    return (hasIceBarrier or hasPowerWordShield or hasShadowWard);
 end
 
 function btp_has_physical_absorb_shield(unit)
@@ -6217,48 +6017,48 @@ function btp_do_dungeon_stuff()
     AcceptProposal();
     CompleteLFGRoleCheck(true);
 
-    mode, submode = GetLFGMode();
+    -- mode, submode = GetLFGMode();
 
-    if (farmDungeon and (mode == nil or mode == 'abandonedInDungeon') and
-       (GetTime() - lastFarmBGTime) >= 30 and
-        not UnitHasLFGDeserter("player") and
-        not UnitHasLFGRandomCooldown("player") and
-        UnitIsDeadOrGhost("player") == nil) then
-        ShowUIPanel(LFDParentFrame);
-        SetLFGDungeon(LFDQueueFrame.type);
-        JoinLFG();
-        HideUIPanel(LFDParentFrame);
-        lastFarmBGTime = GetTime();
-    elseif (farmDungeon and not farmBG and mode == 'lfgparty' and
-            GetNumPartyMembers() > 0 and GetNumPartyMembers() < 3 and
-           (GetTime() - lastFarmBGTime) > 30 and
-           (GetTime() - instanceTime) > 60) then
-        btp_frame_debug("Leaving LFG system: party falling apart.");
-        LeaveParty();
-        LeaveLFG();
-        lastFarmBGTime = GetTime();
-    end
+    -- if (farmDungeon and (mode == nil or mode == 'abandonedInDungeon') and
+    --    (GetTime() - lastFarmBGTime) >= 30 and
+    --     not UnitHasLFGDeserter("player") and
+    --     not UnitHasLFGRandomCooldown("player") and
+    --     UnitIsDeadOrGhost("player") == nil) then
+    --     ShowUIPanel(LFDParentFrame);
+    --     SetLFGDungeon(LFDQueueFrame.type);
+    --     JoinLFG();
+    --     HideUIPanel(LFDParentFrame);
+    --     lastFarmBGTime = GetTime();
+    -- elseif (farmDungeon and not farmBG and mode == 'lfgparty' and
+    --         GetNumPartyMembers() > 0 and GetNumPartyMembers() < 3 and
+    --        (GetTime() - lastFarmBGTime) > 30 and
+    --        (GetTime() - instanceTime) > 60) then
+    --     btp_frame_debug("Leaving LFG system: party falling apart.");
+    --     LeaveParty();
+    --     LeaveLFG();
+    --     lastFarmBGTime = GetTime();
+    -- end
 
-    if (farmDungeon and not farmBG and mode == 'lfgparty' and
-        GetNumPartyMembers() > 0 and GetNumPartyMembers() < 4 and
-       (GetTime() - lastFollowTime) > 120 and btpFollow) then
-        btp_frame_debug("Leaving LFG system: no one to follow.");
-        LeaveParty();
-        LeaveLFG();
-        lastFollowTime = GetTime();
-    end
+    -- if (farmDungeon and not farmBG and mode == 'lfgparty' and
+    --     GetNumPartyMembers() > 0 and GetNumPartyMembers() < 4 and
+    --    (GetTime() - lastFollowTime) > 120 and btpFollow) then
+    --     btp_frame_debug("Leaving LFG system: no one to follow.");
+    --     LeaveParty();
+    --     LeaveLFG();
+    --     lastFollowTime = GetTime();
+    -- end
 
-    if (farmDungeon and mode == nil and (UnitHasLFGDeserter("player") or
-        UnitHasLFGRandomCooldown("player"))) then
-        -- farmBG instead
-        farmBG = true;
-        dontRelease = false;
-        dontHearth = false;
-    elseif (farmDungeon and GetBattlefieldInstanceRunTime() == 0) then
-        farmBG = false;
-        dontRelease = true;
-        dontHearth = true;
-    end
+    -- if (farmDungeon and mode == nil and (UnitHasLFGDeserter("player") or
+    --     UnitHasLFGRandomCooldown("player"))) then
+    --     -- farmBG instead
+    --     farmBG = true;
+    --     dontRelease = false;
+    --     dontHearth = false;
+    -- elseif (farmDungeon and GetBattlefieldInstanceRunTime() == 0) then
+    --     farmBG = false;
+    --     dontRelease = true;
+    --     dontHearth = true;
+    -- end
 end
 
 function btp_do_bg_stuff()
@@ -6343,6 +6143,11 @@ end
 -- true of false if a UnitName() exists in the guild roster.
 --
 function btp_is_guild_member(unit_name)
+    -- until we can fix this
+    if (unit_name) then
+        return true;
+    end
+
     if (not unit_name) then
         return false;
     end
@@ -6390,6 +6195,22 @@ function btp_iterate_group_members(reversed, forceParty)
     local ret
     if i == 0 and unit == 'party' then
       ret = 'player'
+    elseif i <= numGroupMembers and i > 0 then
+      ret = unit .. i
+    end
+    i = i + (reversed and -1 or 1)
+    return ret
+  end
+end
+
+function btp_iterate_group_pets(reversed, forceParty)
+  local unit = (not forceParty and IsInRaid()) and 'raidpet' or 'partypet'
+  local numGroupMembers = unit == 'partypet' and GetNumSubgroupMembers() or GetNumGroupMembers()
+  local i = reversed and numGroupMembers or (unit == 'partypet' and 0 or 1)
+  return function()
+    local ret
+    if i == 0 and unit == 'partypet' then
+      ret = 'pet'
     elseif i <= numGroupMembers and i > 0 then
       ret = unit .. i
     end

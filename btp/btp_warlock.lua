@@ -95,7 +95,6 @@ LockRingsOff = true;
 destCount = 0;
 onlyShadow = false;
 onlyFire = false;
-manualDmgPref = false;
 
 lastShadowBurn = 0;
 lastDrainLife = 0;
@@ -137,7 +136,6 @@ function btp_warlock_initialize()
     SLASH_WARLOKT1 = "/wt";
 
     cb_array["Immolate"]            = btp_cb_warlock_immolate;
-    cb_array["Unstable Affliction"] = btp_cb_warlock_ua;
     cb_array["Soul Fire"]           = btp_cb_warlock_soulfire;
     cb_array["Drain Life"]          = btp_cb_warlock_drainlife;
     cb_array["Drain Mana"]          = btp_cb_warlock_drainmana;
@@ -180,56 +178,6 @@ function btp_cb_warlock_immolate()
     numImmolation = btp_check_debuff("Immolation", current_cb_target);
 
     if (myImmolation) then
-        --
-        -- We will use the IPT target box because we never use this,
-        -- and we may get to do some back-to-back stop cast and cast
-        -- something else action.  If this doesn't work well, then we
-        -- should try to make this return true.
-        --
-        FuckBlizzardByNameStrange("stopcasting");
-        current_cb = nil;
-        return false;
-    end
-
-    return true;
-end
-
-function btp_cb_warlock_ua()
-    --
-    -- First we get the Casting and channel information about the player
-    -- and use this to make sure the player is casting something.
-    --
-    cast_spell, cast_rank, cast_display_name, cast_icon, cast_start_time,
-    cast_end_time, cast_is_trade_skill = UnitCastingInfo("player");
-
-    --
-    -- May just be beteen casts, so let it stand, otherwise we should
-    -- clear the callback if it's not the spell we expect.
-    --
-    if (cast_spell == nil) then
-        return false;
-    elseif (cast_spell ~= "Unstable Affliction") then
-        --
-        -- Well we are not casting our spell, so we can clear the callback.
-        --
-        current_cb = nil;
-        return false;
-    end
-
-    --
-    -- This is the second case where we clear the callback.  All the above
-    -- code should stay the same; however, everything below this line will
-    -- be very different based on the type of spell and what we expect to
-    -- do with the callback.
-    --
-
-    --
-    -- Unstable Affliction check
-    --
-    hasAffliction, myAffliction,
-    numAffliction = btp_check_debuff("UnstableAffliction", current_cb_target);
-
-    if (myAffliction) then
         --
         -- We will use the IPT target box because we never use this,
         -- and we may get to do some back-to-back stop cast and cast
@@ -431,11 +379,9 @@ end
 function WarlockShadowToggle()
     if (onlyShadow) then
         onlyShadow = false;
-        manualDmgPref = false;
         btp_frame_debug("WARLOCK -- Now casting fire spells again.");
     else
         onlyShadow = true;
-        manualDmgPref = true;
         btp_frame_debug("WARLOCK -- Now casting only shadow spells.");
     end
 end
@@ -443,11 +389,9 @@ end
 function WarlockFireToggle()
     if (onlyFire) then
         onlyFire = false;
-        manualDmgPref = false;
         btp_frame_debug("WARLOCK -- Now casting shadow spells again.");
     else
         onlyFire = true;
-        manualDmgPref = true;
         btp_frame_debug("WARLOCK -- Now casting only fire spells.");
     end
 end
@@ -476,13 +420,13 @@ function WarlockBuff()
     -- Soul Link Check
     --
     hasSoulLink, mySoulLink,
-    numSoulLink = btp_check_buff("GatherShadows", "player");
+    numSoulLink = btp_check_buff("Soul Link", "player");
 
     --
     -- Phase Shift Link Check
     --
     hasPhaseShift, myPhaseShift,
-    numPhaseShift = btp_check_buff("ImpPhaseShift", "pet");
+    numPhaseShift = btp_check_buff("Phase Shift", "pet");
 
     --
     -- Fel Armor Check
@@ -566,7 +510,7 @@ function WarlockBuff()
             end
 
             if (noInvis and
-                btp_cast_spell_on_target("Detect Detect Invisibility",nextPlayer)) then
+                btp_cast_spell_on_target("Detect Invisibility", nextPlayer)) then
                 return true;
             end
 
@@ -576,43 +520,33 @@ function WarlockBuff()
             end
         end
     end
-end
 
-function EngineerCC()
-    hasDiscombobulatorRay = false;
-    discombobulatorRayBag = 0;
-    discombobulatorRaySlot = 0;
+   --
+   -- Invisibility Check
+   --
+   hasInvis, myInvis,
+   numInvis = btp_check_buff("Detect Invisibility", "target");
 
-    for bag=0,4 do
-      for slot=1,C_Container.GetContainerNumSlots(bag) do
-        if (C_Container.GetContainerItemLink(bag,slot)) then
+   --
+   -- Unending Breath Check
+   --
+   hasWater, myWater,
+   numWater = btp_check_buff("Unending Breath", "target");
 
-          if (string.find(C_Container.GetContainerItemLink(bag,slot),
-              "Discombobulator Ray") and btp_check_dist("target", 1)) then
-              start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-              if (duration - (GetTime() - start) <= 0) then
-                  hasDiscombobulatorRay = true;
-                  discombobulatorRayBag = bag;
-                  discombobulatorRaySlot = slot;
-              end
-          end
+   if (not hasInvis and UnitIsPlayer("target") and
+       btp_cast_spell_on_target("Detect Detect Invisibility", "target")) then
+       return true;
+   end
 
-        end
-      end
-    end
-
-    if (hasDiscombobulatorRay) then
-        FuckBlizUseContainerItem(discombobulatorRayBag, discombobulatorRaySlot);
-        return true;
-    end
-
-    return false;
+   if (not hasWater and UnitIsPlayer("target") and
+       btp_cast_spell_on_target("Unending Breath", "target")) then
+       return true;
+   end
 end
 
 function WarlockPrimary()
     hasMyCurse = false;
     elementsCount = 0;
-    retPally = false;
 
     if (UnitIsPlayer("target") and btp_has_magic_immune_shield("target")) then
         return false;
@@ -639,24 +573,6 @@ function WarlockPrimary()
     if (elementsCount > 0) then
         elementsCount = elementsCount + 1;
     end
-
-    --
-    -- Tier 4 Fire buff
-    --    
-    hasT4fire, myT4fire,
-    numT4fire = btp_check_buff("ShadowandFlame", "player");
-
-    --
-    -- Tier 4 Shadow buff
-    --    
-    hasT4shadow, myT4shadow,
-    numT4shadow = btp_check_buff("Shadowfury", "player");
-
-    --
-    -- Shadow Protection Potion check
-    --    
-    hasShadowProt, myShadowProt,
-    numShadowProt = btp_check_buff("Potion_123", "player");
 
     --
     -- Charmed
@@ -711,22 +627,13 @@ function WarlockPrimary()
         hasMyCurse = true;
     end
 
-    if (not manualDmgPref and hasT4fire) then
-        onlyFire = true;
-    elseif (not manualDmgPref and hasT4shadow) then
-        onlyShadow = true;
-    elseif (not manualDmgPref) then
-        onlyShadow = false;
-        onlyFire = false;
-    end
-
     ProphetKeyBindings();
     WarlockSetPet();
 
     if (UnitPlayerControlled("target")) then
         if (UnitFactionGroup("player") ~= UnitFactionGroup("target") and
             UnitLevel("target") >= (UnitLevel("player") - 5) and
-           ((UnitClass("target") == "Warrior" and EngineerCC()) or
+           ((UnitClass("target") == "Warrior") or
              DrinkPotion())) then
             --
             -- Just Move On
@@ -744,7 +651,7 @@ function WarlockPrimary()
                 return true;
             end
         elseif ((UnitClass("target") == "Warrior" or
-                (UnitClass("target") == "Paladin" and retPally) or
+                 UnitClass("target") == "Paladin" or
                  UnitClass("target") == "Rogue") and
                 not hasCurseExhaust and
                 btp_can_cast("Curse of Exhaustion")) then
@@ -804,7 +711,11 @@ function WarlockPrimary()
                 end
 
                 return true;
-            elseif (not hasMyCurse and btp_cast_spell("Curse of Agony")) then
+            elseif (not hasMyCurse and (
+                    UnitClassification("target") == "normal" or
+                    UnitClassification("target") == "trivial" or
+                    UnitClassification("target") == "minus") and 
+                    btp_cast_spell("Curse of Agony")) then
                 FuckBlizzardAttackTarget();
 
                 if (not myCharm) then
@@ -838,25 +749,8 @@ function WarlockInst()
     hasCorruptionDebuff, myCorruptionDebuff,
     numCorruptionDebuff = btp_check_debuff("Corruption", "target");
 
-    --
-    -- Seed Debuff check
-    --
-    hasSeedDebuff, mySeedDebuff,
-    numSeedDebuff = btp_check_debuff("SeedOfDestruction", "target");
-
-    --
-    -- Siphon Debuff check
-    --
-    hasSiphonDebuff, mySiphonDebuff,
-    numSiphonDebuff = btp_check_debuff("Requiem", "target");
-
-    if (not mySiphonDebuff and UnitPlayerControlled("target") and
-        btp_cast_spell("Siphon Life")) then
-        return true;
-    elseif (not myCorruptionDebuff and not mySeedDebuff and
-            btp_cast_spell("Corruption")) then
-        return true;
-    elseif (not mySiphonDebuff and btp_cast_spell("Siphon Life")) then
+    if (not myCorruptionDebuff and
+        btp_cast_spell("Corruption")) then
         return true;
     end
 
@@ -869,18 +763,8 @@ function WarlockDest()
     shardCount = 0;
     spellLock = false;
     hasInfernalStone = false;
-    hasMagicDebuff = false;
     nextPlayer = "player";
-    petHasMagicDebuff = false;
-    partyHasMagicDebuff = false;
-    partyDebuffPlayer = nextPlayer;
-    demonArmorCount = 0;
     castConflag = false;
-    hasEZ = false;
-    EZBag = 0;
-    EZSlot = 0;
-    retPally = false;
-    noSoulLink = true;
 
     if (current_cb ~= nil and current_cb()) then
         return true;
@@ -899,16 +783,6 @@ function WarlockDest()
     for bag=0,4 do
       for slot=1,C_Container.GetContainerNumSlots(bag) do
         if (C_Container.GetContainerItemLink(bag,slot)) then
-          if (string.find(C_Container.GetContainerItemLink(bag,slot),
-              "EZ-Thro Dynamite")) then
-              start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-              if (duration - (GetTime() - start) <= 0) then
-                  hasEZ = true;
-                  EZBag = bag;
-                  EZSlot = slot;
-              end
-          end
-
           if (string.find(C_Container.GetContainerItemLink(bag,slot), "Soul Shard")) then
               shardCount = shardCount + 1;
           end
@@ -922,211 +796,43 @@ function WarlockDest()
     end
 
     --
-    -- Unstable Affliction check
+    -- check buffs
     --
-    hasAffliction, myAffliction,
-    numAffliction = btp_check_debuff("UnstableAffliction", "target");
 
-    --
-    -- Immolation check
-    --
-    hasImmolation, myImmolation,
-    numImmolation = btp_check_debuff("Immolate", "target");
-
-    --
-    -- FireWeak check
-    --
-    hasFireWeak, myFireWeak,
-    numFireWeak = btp_check_debuff("SoulBurn", "target");
-
-    --
-    -- BlackPlague check
-    --
-    hasBlackPlague, myBlackPlague,
-    numBlackPlague = btp_check_debuff("BlackPlague", "target");
-
-    --
-    -- BlackPlague check
-    --
-    hasHaunt, myHaunt,
-    numHaunt = btp_check_debuff("Haunt", "target");
-
-    --
-    -- Demon Form Check
-    --
-    hasMetamorphosys, myMetamorphosys,
-    numMetamorphosys = btp_check_buff("DemonForm", "target");
-
-    --
-    -- Does the Target have Shadow Protection
-    --
-    hasTargetShadowProt, myTargetShadowProt,
-    numTargetShadowProt = btp_check_buff("AntiShadow", "target");
-
-    --
-    -- Seal of Blood
-    --    
-    hasSealOfBlood, mySealOfBlood,
-    numSealOfBlood = btp_check_buff("SealOfBlood", "target");
-
-    --
-    -- Seal of Vengance
-    --    
-    hasSealOfVengance, mySealOfVengance,
-    numSealOfVengance = btp_check_buff("Racial_Avatar", "target");
-
-    if (SealOfBlood or hasSealOfVengance) then
-        retPally = true;
-    end
-
-    if (not hasPhaseShift and hasSoulLink) then
-        noSoulLink = false;
-    end
-
-    for i = 1, 40 do
-        debuffName, debuffRank, debuffTexture, debuffApplications,
-        debuffType, debuffDuration, debuffTimeLeft, debuffMine,
-        debuffStealable = UnitDebuff("target", i);
-
-        if (debuffTexture and debuffMine and
-            strfind(debuffTexture, "Immolation")) then
-            if ((debuffTimeLeft - GetTime()) <= 5) then
-                castConflag = true;
-            end
-        end
-    end
-
-    --
-    -- Tier 4 Fire buff
-    --    
-    hasT4fire, myT4fire,
-    numT4fire = btp_check_buff("ShadowandFlame", "player");
-
-    --
-    -- Tier 4 Shadow buff
-    --    
-    hasT4shadow, myT4shadow,
-    numT4shadow = btp_check_buff("Shadowfury", "player");
-
-    --
-    -- Backlash check
-    --
-    hasBacklash, myBacklash,
-    numBacklash = btp_check_buff("PlayingWithFire", "player");
-
-    --
-    -- Nightfall check
-    --
-    hasNightfall, myNightfall,
-    numNightfall = btp_check_buff("Twilight", "player");
-
-    --
-    -- Eradication check
-    --
-    hasEradication, myEradication,
-    numEradication = btp_check_buff("Eradication", "player");
-
-    --
-    -- Shadow Protection Potion check
-    --
-    hasShadowProt, myShadowProt,
-    numShadowProt = btp_check_buff("Potion_123", "player");
-
-    --
-    -- ShadowWeak check
-    --
-    hasShadowWeak, myShadowWeak,
-    numShadowWeak = btp_check_debuff("ShadowBolt", "player");
-
-    --
+       --
     -- Soul Link Check
     --
     hasSoulLink, mySoulLink,
-    numSoulLink = btp_check_buff("GatherShadows", "player");
+    numSoulLink = btp_check_buff("Soul Link", "player");
 
     --
     -- Phase Shift Link Check
     --
     hasPhaseShift, myPhaseShift,
-    numPhaseShift = btp_check_buff("ImpPhaseShift", "pet");
+    numPhaseShift = btp_check_buff("Phase Shift", "pet");
 
-    --
-    -- Demon Form Check
-    --
-    hasDemonForm, myDemonForm,
-    numDemonForm = btp_check_buff("DemonForm", "player");
-
-    --
-    -- Fel Domination Check
-    --
+    -- Fel Domination check
     hasFelDomination, myFelDomination,
-    numFelDomination = btp_check_buff("RemoveCurse", "player");
+    numFelDomination = btp_check_buff("Fel Domination", "player");
 
-    --
+    -- Nightfall check
+    hasNightfall, myNightfall,
+    numNightfall = btp_check_buff("Nightfall", "player");
+
     -- Demonic Sacrifice Check
-    --
     hasDemonicSacrifice, myDemonicSacrifice,
-    numDemonicSacrifice = btp_check_buff("PsychicScream", "player");
+    numDemonicSacrifice = btp_check_buff("Demonic Sacrifice", "player");
 
     --
-    -- Molten Core check
+    -- check target debuffs
     --
-    hasMoltenCore, myMoltenCore,
-    numMoltenCore = btp_check_buff("MoltenCore", "player");
 
-    --
-    -- Empowered Imp Check
-    --
-    hasEmpoweredImp, myEmpoweredImp,
-    numEmpoweredImp = btp_check_buff("EmpoweredImp", "player");
+    -- Immolation check
+    hasImmolation, myImmolation,
+    numImmolation = btp_check_debuff("Immolate", "target");
 
-    --
-    -- Backdraft Check
-    --
-    hasBackdraft, myBackdraft,
-    numBackdraft = btp_check_buff("Backdraft", "player");
-
-    buffName = "foo";
-    i = 1;
-
-    while (buffName) do
-        buffName, buffIcon, buffCount, dispelType, duration,
-        expirationTime, source, isStealable, nameplateShowPersonal,
-        spellId, canApplyAura, isBossDebuff, castByPlayer,
-        nameplateShowAll, timeMod = UnitBuff("player", i);
-
-        if (buffName and strfind(buffName, "RagingScream")) then
-            demonArmorCount = demonArmorCount + 1;
-        end
-
-        i = i + 1;
-    end
-
-    for i = 1, 40 do
-        debuffName, debuffRank, debuffTexture, debuffApplications,
-        debuffType, debuffDuration, debuffTimeLeft, debuffMine,
-        debuffStealable = UnitDebuff("player", i);
-
-        if (debuffTexture and debuffType and strfind(debuffType, "Magic")) then
-            hasMagicDebuff = true;
-        end
-
-        debuffName, debuffRank, debuffTexture, debuffApplications,
-        debuffType, debuffDuration, debuffTimeLeft, debuffMine,
-        debuffStealable = UnitDebuff("pet", i);
-
-        if (debuffTexture and debuffType and strfind(debuffType, "Magic")) then
-            petHasMagicDebuff = true;
-        end
-    end
-
-    if (not manualDmgPref and hasT4fire) then
-        onlyFire = true;
-    elseif (not manualDmgPref and hasT4shadow) then
-        onlyShadow = true;
-    elseif (not manualDmgPref) then
-        onlyShadow = false;
-        onlyFire = false;
+    if (hasSoulLink or hasPhaseShift) then
+        noSoulLink = false;
     end
 
     ProphetKeyBindings();
@@ -1139,36 +845,20 @@ function WarlockDest()
     --
     -- Pet Code
     --
-    if (UnitHealth("pet") > 1 and (hasMagicDebuff or partyHasMagicDebuff or
-        petHasMagicDebuff) and btp_can_cast("Devour Magic")) then
-        if (hasMagicDebuff and
-            btp_cast_spell_on_target_alt("Devour Magic", "player")) then
-            FuckBlizzardTargetUnitAlt("playertarget");
-            hasMagicDebuff = false;
-            pet_cast = true;
-        elseif (partyHasMagicDebuff and
-                btp_cast_spell_on_target_alt("Devour Magic",
-                partyDebuffPlayer)) then
-            FuckBlizzardTargetUnitAlt("playertarget");
-            partyHasMagicDebuff = false;
-            pet_cast = true;
-        elseif (petHasMagicDebuff and
-                btp_cast_spell_on_target_alt("Devour Magic", "pet")) then
-            FuckBlizzardTargetUnitAlt("playertarget");
-            petHasMagicDebuff = false;
-            pet_cast = true;
-        end
-    elseif (UnitHealth("pet") > 1 and (UnitCastingInfo("target") or
-            UnitChannelInfo("target")) and
-            not (UnitIsPlayer("target") and btp_has_immune_shield("target")) and
-            btp_cast_spell_alt("Spell Lock")) then
-            spellLock = true;
+    if (UnitHealth("pet") > 1 and
+        (btp_is_casting("target") or btp_is_channeling("target")) and
+        not (UnitIsPlayer("target") and btp_has_immune_shield("target")) and
+        btp_cast_spell_alt("Spell Lock")) then
+        spellLock = true;
         pet_cast = true;
     elseif (UnitHealth("player")/UnitHealthMax("player") <= HEALTH_THRESH/2 and
             UnitHealth("pet") > 1 and btp_cast_spell_alt("Sacrifice")) then
         pet_cast = true;
     end
 
+    --
+    -- short circuit if the target is immune
+    --
     if (UnitIsPlayer("target") and btp_has_immune_shield("target")) then
         if (SelfHeal(HEALTH_THRESH, MANA_THRESH/5)) then
             --
@@ -1178,15 +868,6 @@ function WarlockDest()
         end
 
         return false;
-    elseif (UnitIsPlayer("target") and
-            btp_has_magic_immune_shield("target")) then
-        if (SelfHeal(HEALTH_THRESH, MANA_THRESH/5)) then
-            --
-            -- healing self with healthstones, potions, etc
-            --
-            return true;
-        end
-
     end
 
     --
@@ -1206,61 +887,23 @@ function WarlockDest()
             UnitPlayerControlled("target"))) and
             btp_cast_spell("Conflagrate")) then
         return true;
-    elseif (not onlyShadow and hasBacklash and myImmolation and
-            btp_cast_spell("Incinerate")) then
-        return true;
-    elseif (not onlyFire and (hasBacklash or hasNightfall) and
+    elseif (not onlyFire and hasNightfall and
             btp_cast_spell("Shadow Bolt")) then
-        return true;
-    elseif (not onlyFire and hasDemonForm and
-            UnitHealth("target")/UnitHealthMax("target") < .25 and
-            btp_check_dist("target", 3) and UnitPlayerControlled("target") and
-            btp_cast_spell("Shadow Cleave")) then
-        return true;
-    elseif (not onlyShadow and not onlyFire and
-            UnitHealth("target")/UnitHealthMax("target") < .25 and
-            btp_check_dist("target", 3) and UnitPlayerControlled("target") and
-            btp_cast_spell("Shadowflame")) then
-        return true;
-    elseif (not onlyFire and shardCount > 0 and
-            UnitHealth("target")/UnitHealthMax("target") < .25 and
-            UnitLevel("target") >= (UnitLevel("player") - LOWEST_SHARD) and
-            UnitPlayerControlled("target") and
-            btp_cast_spell("Shadowburn")) then
-        lastShadowBurn = GetTime();
-        return true;
-    elseif (not onlyFire and shardCount > BASE_SHARDS and
-            UnitHealth("target")/UnitHealthMax("target") < .25 and
-            UnitLevel("target") >= (UnitLevel("player") - LOWEST_SHARD) and
-            not UnitIsTrivial("target") and
-            (GetTime() - lastShadowBurn) >= 120 and
-            btp_cast_spell("Shadowburn")) then
-        lastShadowBurn = GetTime();
-        return true;
-    elseif (not onlyFire and shardCount >= NUM_SHARDS and
-            UnitHealth("target")/UnitHealthMax("target") < .25 and
-            UnitLevel("target") >= (UnitLevel("player") - LOWEST_SHARD) and
-            not UnitIsTrivial("target") and btp_cast_spell("Shadowburn")) then
-        lastShadowBurn = GetTime();
-        return true;
-    elseif (UnitIsPlayer("target") and hasMetamorphosys and
-            btp_cast_spell("Banish")) then
         return true;
     elseif (not onlyFire and not spellLock and 
             not btp_has_magic_absorb_shield("target") and
             UnitHealth("player") < UnitHealthMax("player") and
-           (UnitCastingInfo("target") or UnitChannelInfo("target")) and
+           (btp_is_casting("target") or btp_is_channeling("target")) and
             UnitPlayerControlled("target") and 
             btp_cast_spell_alt("Death Coil")) then
         return true;
     elseif (not onlyFire and UnitHealth("player") < UnitHealthMax("player") and
             not btp_has_magic_absorb_shield("target") and
-            btp_check_dist("target", 3) and not hasDemonForm and
+            btp_check_dist("target", 3) and
            (UnitClass("target") == "Warrior" or
             UnitClass("target") == "Rogue" or
             UnitClass("target") == "Druid" or
-            UnitClass("target") == "Death Knight" or
-           (UnitClass("target") == "Paladin" and retPally)) and
+            UnitClass("target") == "Paladin") and
             UnitPlayerControlled("target") and 
            btp_cast_spell("Death Coil")) then
         return true;
@@ -1269,44 +912,18 @@ function WarlockDest()
             shardCount > 0 and btp_cast_spell(WARLOCK_LAST_PET)) then
         return true;
     elseif (not onlyFire and shardCount < NUM_SHARDS and
-            not hasDemonForm and not UnitIsTrivial("target") and
+            not UnitIsTrivial("target") and
             UnitHealth("target") <= btp_spell_damage("Drain Soul") and
             UnitHealth("target")/UnitHealthMax("target") < .25 and
             UnitFactionGroup("player") ~= UnitFactionGroup("target") and
             btp_cast_spell("Drain Soul")) then
         lastDrainSoul = GetTime();
         return true;
-    elseif (btp_check_dist("target", 4) and
-            btp_cast_spell("Metamorphosis")) then
-        return true;
-    elseif (hasDemonForm and btp_check_dist("target", 4) and
-            not btp_check_dist("target", 3) and
-            btp_cast_spell("Demon Charge")) then
-        return true;
-    elseif (not onlyShadow and hasDemonForm and btp_check_dist("target", 3) and
-            btp_cast_spell("Immolation Aura")) then
-        return true;
-    elseif (hasDemonForm and not UnitIsPlayer("target") and
-            btp_check_dist("target", 3) and btp_can_cast("Soulshatter") and
-            btp_cast_spell("Challenging Howl")) then
-        return true;
-    elseif (not onlyFire and hasDemonForm and btp_check_dist("target", 3) and
-            btp_cast_spell("Shadow Cleave")) then
-        return true;
-    elseif (not UnitPlayerControlled("target") and demonArmorCount < 2 and
-            UnitPower("target") > 0 and UnitPowerType("target") == 0 and
-            not hasShadowProt and btp_cast_spell("Shadow Ward")) then
-        return true;
-    elseif (demonArmorCount < 2 and (UnitClass("target") == "Warlock" or
-            UnitClass("target") == "Priest" or
-            UnitClass("target") == "Death Knight") and
-            not hasShadowProt and btp_cast_spell("Shadow Ward")) then
-        return true;
-    elseif (not hasDemonForm and noSoulLink and UnitHealth("pet") > 1 and
+    elseif (noSoulLink and UnitHealth("pet") > 1 and
             btp_cast_spell_on_target("Soul Link", "player")) then
         return true;
     elseif ((not PetHasActionBar() or UnitHealth("pet") < 2) and
-            not hasDemonicSacrifice and not hasDemonForm and
+            not hasDemonicSacrifice and
             btp_cast_spell("Fel Domination")) then
         return true;
     elseif (not hasDemonicSacrifice and UnitHealth("pet") > 1 and
@@ -1314,25 +931,10 @@ function WarlockDest()
             not hasDemonicSacrifice and
             btp_cast_spell("Demonic Sacrifice")) then
         return true;
-    elseif (WarlockPet("Imp") and btp_cast_spell("Demonic Empowerment")) then
-        return true;
-    elseif (WarlockPet("Voidwalker") and
-            btp_cast_spell("Demonic Empowerment")) then
-        return true;
-    elseif (WarlockPet("Succubus") and btp_is_impaired("pet") and
-            btp_cast_spell("Demonic Empowerment")) then
-        return true;
-    elseif (WarlockPet("Felhunter") and petHasMagicDebuff and
-            btp_cast_spell("Demonic Empowerment")) then
-        return true;
-    elseif (WarlockPet("Felguard") and btp_is_impaired("pet") and
-            btp_cast_spell("Demonic Empowerment")) then
-        return true;
     elseif (not onlyShadow and not onlyFire and btp_check_dist("target", 3) and
             btp_cast_spell("Shadowflame")) then
         return true;
-    elseif (not onlyFire and not hasDemonForm and
-            not btp_has_magic_absorb_shield("target") and
+    elseif (not onlyFire and not btp_has_magic_absorb_shield("target") and
             UnitHealth("player")/UnitHealthMax("player") <= HEALTH_THRESH and
             btp_cast_spell("Drain Life")) then
         lastDrainLife = GetTime();
@@ -1340,18 +942,11 @@ function WarlockDest()
     elseif ((not PetHasActionBar() or UnitHealth("pet") < 2) and
             IsActiveBattlefieldArena() == nil and
             hasInfernalStone and not pvpBot and
-            not hasDemonicSacrifice and not hasDemonForm and
+            not hasDemonicSacrifice and
             btp_cast_spell("Inferno")) then
-        return true;
-    elseif (not onlyFire and not myAffliction and
-            btp_cast_spell("Unstable Affliction")) then
-        return true;
-    elseif (not onlyFire and not myHaunt and btp_cast_spell("Haunt")) then
         return true;
     elseif (not onlyShadow and not myImmolation and
             btp_cast_spell("Immolate")) then
-        return true;
-    elseif (not onlyShadow and btp_cast_spell("Chaos Bolt")) then
         return true;
     elseif (not onlyShadow and hasBackdraft and numBackdraft < 3 and
            ((shardCount > BASE_SHARDS and not UnitIsTrivial("target")) or
@@ -1419,9 +1014,6 @@ function WarlockDest()
         elseif (not onlyFire and UnitPowerType("target") == 0 and
                 UnitPower("target") > 500 and btp_cast_spell("Drain Mana")) then
             lastDrainMana = GetTime();
-            normal_cast = true;
-        elseif (UnitPlayerControlled("target") and hasEZ) then
-            FuckBlizUseContainerItem(EZBag, EZSlot);
             normal_cast = true;
         elseif (UnitHealth("player")/UnitHealthMax("player") < HEALTH_THRESH and
                 UnitPower("player")/UnitPowerMax("player") < MANA_THRESH/5) then
