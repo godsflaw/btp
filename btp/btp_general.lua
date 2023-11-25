@@ -3797,6 +3797,12 @@ function btp_bot_new()
         druid_buff();
     end
 
+    if (UnitClass("player") == "Druid") then
+        druid_heal();
+        druid_buff();
+    end
+
+
 end
 
 function btp_pick_follow()

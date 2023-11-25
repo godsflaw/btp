@@ -22,6 +22,10 @@ function btp_dbg(msg)
     UIErrorsFrame:AddMessage(msg, 1.0,1.0, 0, 1, 10);
 end
 
+function btp_get_my_name()
+    return UnitName("player");
+end
+
 -- Moved a lot of stuff to btp_priest_old.lua
 function btp_priest_initialize()
     btp_frame_debug("Priest INIT");
