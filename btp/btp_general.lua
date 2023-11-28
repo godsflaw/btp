@@ -3568,9 +3568,9 @@ function btp_health_status(thresh, raidHeal)
     if (UnitClass("player") == "Druid") then
         spell = "Healing Touch";
     elseif (UnitClass("player") == "Priest") then
-        spell = "Heal";
+        spell = "Lesser Heal";
     elseif (UnitClass("player") == "") then
-        spell = "Heal";
+        spell = "Lesser Heal";
     end
 
     for nextPlayer in btp_iterate_group_members() do
