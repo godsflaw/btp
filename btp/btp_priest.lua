@@ -1743,3 +1743,75 @@ end
 
 --    for nextPlayer in btp_iterate_group_members() do
 
+
+
+--[[
+    EXPERIMENTAL CODE HERE
+]]
+BTP_PLAYER_INFO = btp_get_unit_info("player");
+
+BTP_UNIT_INFO = {}
+-- Function to get unit info
+function btp_get_unit_info(unit)
+    -- Call common unit methods here
+    local unitName = UnitName(unit)
+    local unitLevel = UnitLevel(unit)
+    local unitClass = UnitClass(unit)
+    local unitHealth = UnitHealth(unit)
+    local unitMaxHealth = UnitHealthMax(unit)
+    local unitInCombat = UnitAffectingCombat(unit)
+    local unitInRange = UnitInRange(unit)
+    local unitPriority = btp_check_heal_priority(unit)
+
+    -- Add the unit info to the BTP_UNITS dictionary
+    BTP_UNIT_INFO[unit] = {
+        name = unitName,
+        level = unitLevel,
+        class = unitClass,
+        health = unitHealth,
+        maxHealth = unitMaxHealth,
+        inCombat = unitInCombat,
+        inRange = unitInRange,
+        priority = unitPriority,
+    }
+end
+
+-- Ordered list of all player classes
+BTP_BASIC_PRIORITIES = {
+    "Warrior",
+    "Paladin",
+    "Priest",
+    "Druid",
+    "Shaman",
+    "Mage",
+    "Death Knight",
+    "Demon Hunter",
+    "Warlock",
+    "Monk",
+    "Hunter",
+    "Rogue"
+}
+
+function btp_check_heal_priority(unit)
+    local priority = 0;
+    -- we are always the highest priority
+    if (unit == "player") then return 1; end
+    -- now check if we set a priority list
+    for i = 1, pcount do
+        if (unit == priority[i]) then
+            return i;
+        end
+    end
+    if (pcount) then priority = pcount + 1; end
+
+    -- take a stab at priority if we dont have defined list
+    local unitClass = UnitClass(unit)
+    for i, class in ipairs(BTP_BASIC_PRIORITIES) do
+        if class == unitClass then
+            priority = i
+            break
+        end
+    end
+
+    return priority
+end
