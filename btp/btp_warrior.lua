@@ -208,14 +208,25 @@ function warrior_dps()
             UnitThreatSituation("player", "target") < 3 and
             btp_cast_spell("Taunt")) then
         return true;
+    elseif (btp_check_dist("target", 3) and
+            UnitThreatSituation("player", "target") ~= nil and
+            UnitThreatSituation("player", "target") < 3 and
+            btp_cast_spell("Mocking Blow")) then
+        return true;
     elseif (not mySunder and numSunder < 1 and btp_check_dist("target", 3) and
             btp_cast_spell("Sunder Armor")) then
+        return true;
+    elseif (playerHealthRatio < .60 and
+            btp_cast_spell("Retaliation")) then
         return true;
     elseif (playerHealthRatio < .80 and
             btp_cast_spell("Shield Block")) then
         return true;
     elseif (btp_check_dist("target", 3) and
             btp_cast_spell("Shield Slam")) then
+        return true;
+    elseif (btp_check_dist("target", 3) and
+            btp_cast_spell("Disarm")) then
         return true;
     elseif (btp_check_dist("target", 3) and
             btp_cast_spell("Bloodthirst")) then

@@ -46,6 +46,17 @@ debugFile := "D:\debug.txt"
 ; There should be no reason to change anything below this line unless you
 ; are told to or know what your doing.
 ;
+
+F9::
+{
+    global botOn
+    if (botOn) {
+        botOn := false
+    } else {
+        botOn := true
+    }
+}
+
 r            := 0
 g            := 0
 b            := 0

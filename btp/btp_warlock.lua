@@ -446,6 +446,12 @@ function WarlockBuff()
     hasWater, myWater,
     numWater = btp_check_buff("Unending Breath", "player");
 
+    --
+    -- Fire Shield
+    --
+    hasFireShield, myFireShield,
+    numFireShield = btp_check_buff("Fire Shield", "player");
+
     if (hasDemonArmor or hasFelArmor) then
         noArmor = false;
     end
@@ -466,6 +472,17 @@ function WarlockBuff()
         return true;
     end
 
+    --
+    -- Pet Code
+    --
+    if (UnitHealth("pet") > 1 and not hasFireShield and
+        btp_cast_spell_on_target_alt("Fire Shield", "player")) then
+        pet_cast = true;
+    end
+
+    --
+    -- Player Code
+    --
     if (noSoulLink and UnitHealth("pet") > 1 and
         btp_cast_spell("Soul Link")) then
         return true;
@@ -501,6 +518,12 @@ function WarlockBuff()
             hasWater, myWater,
             numWater = btp_check_buff("Unending Breath", nextPlayer);
 
+            --
+            -- Fire Shield
+            --
+            hasFireShield, myFireShield,
+            numFireShield = btp_check_buff("Fire Shield", nextPlayer);
+
             if (hasInvis) then
                 noInvis = false;
             end
@@ -509,6 +532,17 @@ function WarlockBuff()
                 noWater = false;
             end
 
+            --
+            -- Pet Code
+            --
+            if (UnitHealth("pet") > 1 and not hasFireShield and
+                btp_cast_spell_on_target_alt("Fire Shield", nextPlayer)) then
+                pet_cast = true;
+            end
+
+            --
+            -- Player Code
+            --
             if (noInvis and
                 btp_cast_spell_on_target("Detect Invisibility", nextPlayer)) then
                 return true;
@@ -521,18 +555,21 @@ function WarlockBuff()
         end
     end
 
-   --
-   -- Invisibility Check
-   --
-   hasInvis, myInvis,
-   numInvis = btp_check_buff("Detect Invisibility", "target");
+    --
+    -- Invisibility Check
+    --
+    hasInvis, myInvis,
+    numInvis = btp_check_buff("Detect Invisibility", "target");
 
-   --
-   -- Unending Breath Check
-   --
-   hasWater, myWater,
-   numWater = btp_check_buff("Unending Breath", "target");
+    --
+    -- Unending Breath Check
+    --
+    hasWater, myWater,
+    numWater = btp_check_buff("Unending Breath", "target");
 
+    --
+    -- Player Code
+    --
    if (not hasInvis and UnitIsPlayer("target") and
        btp_cast_spell_on_target("Detect Detect Invisibility", "target")) then
        return true;
