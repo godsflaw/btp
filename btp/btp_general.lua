@@ -3824,7 +3824,7 @@ function btp_class_callback(callback)
     local class_callbacks = BTP_CLASS_CALLBACKS[player_class]
 
     if (not class_callbacks) then
-        btp_frame_debu("No callbacks for " .. player_class);
+        -- btp_frame_debug("No callbacks for " .. player_class);
         return false
     end
     
