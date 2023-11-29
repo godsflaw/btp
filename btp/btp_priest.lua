@@ -1009,42 +1009,95 @@ function btp_cb_priest_binding_heal(spell_name)
 end
 
 
-
-
---    for nextPlayer in btp_iterate_group_members() do
-
-
-
 --[[
     EXPERIMENTAL CODE HERE
-]]
 -- TODO: fix this, it tosses an error because the function doesn't exist yet
 -- BTP_PLAYER_INFO = btp_get_unit_info("player");
+=======
+
+function btp_is_unit(unit)
+    local unit_regex_pattern = "(party%d|player|playertarget|target|raid%d)";
+    if (unit:match(unit_regex_pattern)) then
+        return true;
+    end
+    return false;
+end
+
+BTP_PLAYER_INFO_USE_CACHE = true;
+BTP_PLAYER_INFO = btp_get_unit_info("player");
+-- Create an empty table to store the ordered player info
+BTP_PLAYER_INFO_PRIORITY_ORDER = {}
 
 BTP_UNIT_INFO = {}
 -- Function to get unit info
 function btp_get_unit_info(unit)
-    -- Call common unit methods here
-    local unitName = UnitName(unit)
-    local unitLevel = UnitLevel(unit)
-    local unitClass = UnitClass(unit)
-    local unitHealth = UnitHealth(unit)
-    local unitMaxHealth = UnitHealthMax(unit)
-    local unitInCombat = UnitAffectingCombat(unit)
-    local unitInRange = UnitInRange(unit)
-    local unitPriority = btp_check_heal_priority(unit)
+    
+    -- only run if the unit exists
+    if (not UnitExists(unit)) then return false; end
 
+    -- make sure we are passed a unit not a name
+    if (not btp_is_unit(unit)) then
+        btp_frame_debug("btp_get_unit_info - passed a non-valid unit: " .. unit)
+        return false;
+    end
+
+    if (BTP_PLAYER_INFO_USE_CACHE and
+        BTP_PLAYER_INFO[unit]) then
+        local record_age = data.GetTime - BTP_PLAYER_INFO[unit].update;
+        -- never use data older than 1 second
+        if (record_age < 1) then
+            return BTP_PLAYER_INFO[unit];
+        end
+    end
+
+    -- check if the unit already exits
     -- Add the unit info to the BTP_UNITS dictionary
+    local unit_health = UnitHealth(unit);
+    local unit_health_max = UnitHealthMax(unit);
+    local unit_percent = unit_health/unit_health_max;
+    local unit_class = UnitClass(unit);
+    local unit_priority = 100;
+    local unit_type = function() 
+        if (UnitIsPlayer(unit)) then return "player"; end
+        if (UnitIsBattlePet(unit)) then return "pet"; end
+        return "unknown";
+    end;
+
+
+    -- always prioritize ourself
+    if (unit == "player") then unit_priority = 100; end
+    if (pcount) then
+        -- Loop over priority and subtract the priority index from unit_priority
+        for index, priority in ipairs(PRIORITY_G) do
+            unit_priority = unit_priority - index
+        end
+    end
+    for index, class in ipairs(BTP_BASIC_PRIORITIES) do
+        if class == unit_class then
+            unit_priority = unit_priority - index
+            break
+        end
+    end
+
+    -- always set pet to lowest priority, should only ever get HOTs
+    if (unit_type == "pet") then unit_priority = 1; end
+
     BTP_UNIT_INFO[unit] = {
-        name = unitName,
-        level = unitLevel,
-        class = unitClass,
-        health = unitHealth,
-        maxHealth = unitMaxHealth,
-        inCombat = unitInCombat,
-        inRange = unitInRange,
-        priority = unitPriority,
+        updated = date.GetTime(),
+        name = UnitName(unit),
+        level = UnitLevel(unit),
+        class = unit_class,
+        health = UnitHealth(unit),
+        heahth_max = UnitHealthMax(unit),
+        in_combat = UnitAffectingCombat(unit),
+        in_range = UnitInRange(unit),
+        priority = btp_check_heal_priority(unit),
+        percent = unit_percent,
+        threat = UnitThreatSituation(unit),
+        type = unit_type,
     }
+
+    return BTP_UNIT_INFO[unit];
 end
 
 -- Ordered list of all player classes
@@ -1063,10 +1116,38 @@ BTP_BASIC_PRIORITIES = {
     "Rogue"
 }
 
+function btp_unit_is_player(unit)
+    local unit_info = btp_get_unit_info(unit);
+    if (unit_info.name = BTP_PLAYER_INFO.name) then return true; end
+    return false
+end
+
+function btp_set_priority_order()
+    for nextPlayer in btp_iterate_group_members() do
+        local unit_info = btp_get_unit_info(nextPlayer);
+    end
+    for nextPet in btp_iterate_group_pets() do
+        local unit_info = btp_get_unit_info(nextPet);
+    end
+
+    -- Loop over BTP_PLAYER_INFO and add the player info to the ordered list
+    for unit, info in pairs(BTP_PLAYER_INFO) do
+        table.insert(BTP_PLAYER_INFO_PRIORITY_ORDER, info)
+    end
+
+    -- Sort the list based on the priority value
+    table.sort(BTP_PLAYER_INFO_PRIORITY_ORDER, function(a, b)
+        return a.priority < b.priority
+    end)
+
+end
+
 function btp_check_heal_priority(unit)
+    local unit_info = btp_get_unit_info(unit);
+
     local priority = 0;
     -- we are always the highest priority
-    if (unit == "player") then return 1; end
+    if (btp_unit_is_player(unit_info)) then return 1; end
     -- now check if we set a priority list
     for i = 1, pcount do
         if (unit == priority[i]) then
@@ -1086,3 +1167,5 @@ function btp_check_heal_priority(unit)
 
     return priority
 end
+
+]]
