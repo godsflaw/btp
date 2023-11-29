@@ -1748,7 +1748,8 @@ end
 --[[
     EXPERIMENTAL CODE HERE
 ]]
-BTP_PLAYER_INFO = btp_get_unit_info("player");
+-- TODO: fix this, it tosses an error because the function doesn't exist yet
+-- BTP_PLAYER_INFO = btp_get_unit_info("player");
 
 BTP_UNIT_INFO = {}
 -- Function to get unit info
