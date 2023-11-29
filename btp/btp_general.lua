@@ -3790,16 +3790,14 @@ function btp_bot_new()
     ]]
 
     if (UnitClass("player") == "Priest") then
-        btp_priest_heal();
-        PriestBuff();
+        if(btp_priest_heal()) then return true; end
+        if(PriestBuff()) then return true; end
     elseif (UnitClass("player") == "Druid") then
-        druid_heal();
-        druid_buff();
-    end
-
-    if (UnitClass("player") == "Druid") then
-        druid_heal();
-        druid_buff();
+        if (druid_heal()) then return true; end
+        if (druid_buff()) then return true; end
+    elseif (UnitClass("player") == "Druid") then
+        if (druid_heal()) then return true; end
+        if (druid_buff()) then return true; end
     end
 
 
@@ -6245,6 +6243,16 @@ end
 
 function btp_unit_has_threat(unit)
     if (UnitThreatSituation(unit) > 0) then
+        return true;
+    end
+    return false;
+end
+
+function btp_is_soft_target(unit)
+    -- warriors need rage, hunter can feign, paladins, should have armor
+    local soft_target_classes = {"Priest", "Mage", "Warlock", "Druid", "Shaman", "Rouge"};
+    return true;
+    if table.includes(classes, UnitClass(unit)) then
         return true;
     end
     return false;
