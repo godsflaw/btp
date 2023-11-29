@@ -62,6 +62,18 @@ function btp_priest_initialize()
     -- cb_array["Holy Word: Sanctuary"]    = btp_cb_priest_holy_word_sanctuary("Holy Word: Sanctuary");
     -- cb_array["Hymn of Hope"]            = btp_cb_priest_hymn_of_hope("Hymn of Hope");
 
+    btp_set_opt("HEAL", true);
+    btp_set_opt("BUFF", true);
+    btp_set_opt("DPS", false);
+    btp_set_opt("FOLLOW", true);
+
+    -- setup our class callbacks
+    BTP_CLASS_CALLBACKS["Priest"] = {
+        heal = btp_priest_heal,
+        buff = PriestBuff,
+        dps = btp_priest_dps
+    };
+
 end
 
 function btp_dps_mode_toggle()
@@ -76,7 +88,6 @@ end
 
 function PriestBuff()
     ProphetKeyBindings();
-
     -- only run when not in combat
     if UnitAffectingCombat("player") then return false; end
 
@@ -474,6 +485,7 @@ PR_MANA = .30;
 
 function btp_priest_heal()
     -- Put any callback code here.
+    -- btp_frame_debug("CALLING: Priest Heal");
 
     -- doing a self heal here (healthstones, potions, etc)
     if (SelfHeal(PR_THRESH, PR_MANA/3)) then
@@ -694,17 +706,17 @@ function btp_priest_heal_medium(cur_percent, cur_health, cur_player)
         -- only cast for medium damage if the unit is in combat and has high threat
         if(not btp_priest_is_pws(cur_player) and 
                btp_unit_has_threat(cur_player) and 
-               btp_is_soft_target(cur_player))) then
+               btp_is_soft_target(cur_player)) then
             if(btp_cast_spell_on_target("Power Word: Shield", cur_player)) then return true; end
         end
 
         if(btp_cast_spell_on_target("Circle of Healing", cur_player)) then return true; end
-        if(btp_priest_bestheal(cur_player)) then return true; end
+        if(btp_cast_spell_on_target("Lesser Heal", cur_player)) then return true; end
     else
         if(not btp_priest_is_renew(cur_player)) then
             if(btp_cast_spell_on_target("Renew", cur_player)) then return true; end
         end
-        if(btp_priest_bestheal(cur_player)) then return true; end
+        if(btp_cast_spell_on_target("Lesser Heal", cur_player)) then return true; end
     end
 
     return false;
