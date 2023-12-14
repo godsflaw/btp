@@ -49,13 +49,13 @@ WARLOCK_LAST_PET = "Summon Imp";
 -- "Demon Skin" that the warlock currently has.  I could automate this,
 -- but I am lazy.
 --
-WARLOCK_ARMOR = "Demon Skin";
+WARLOCK_ARMOR = "Demon Armor";
 
 --
 -- This is the default armor to use when buffing.  Since only one can
 -- be used at a time you should use the /wt option to change this.
 --
-DEFAULT_ARMOR = "Demon Skin";
+DEFAULT_ARMOR = "Demon Armor";
 
 --
 -- If you do not have WARLOCK_ARCANE_R, WARLOCK_FIRE_R, WARLOCK_NATURE_R,
@@ -175,7 +175,7 @@ function btp_cb_warlock_immolate()
     -- Immolation check
     --
     hasImmolation, myImmolation,
-    numImmolation = btp_check_debuff("Immolation", current_cb_target);
+    numImmolation = btp_check_debuff("Immolate", current_cb_target);
 
     if (myImmolation) then
         --
@@ -1028,11 +1028,6 @@ function WarlockDest()
         elseif (destCount == 4 and not onlyFire and not hasEradication and
                 WarlockInst()) then
             normal_cast = true;
-        elseif (not onlyShadow and ((btp_can_cast("Soulshatter") and
-                not UnitPlayerControlled("target")) or
-                UnitPlayerControlled("target")) and
-                btp_cast_spell("Searing Pain")) then
-            normal_cast = true;
         elseif (not onlyShadow and myImmolation and
                 not UnitPlayerControlled("target") and
                 btp_cast_spell("Incinerate")) then
@@ -1044,6 +1039,9 @@ function WarlockDest()
             normal_cast = true;
         elseif (UnitHealth("pet") > 1 and UnitPower("pet") > 500 and
                 btp_cast_spell("Dark Pact")) then
+            normal_cast = true;
+        elseif (not onlyShadow and
+                btp_cast_spell("Searing Pain")) then
             normal_cast = true;
         elseif (UnitHealth("player")/UnitHealthMax("player") > HEALTH_THRESH and
                 btp_cast_spell("Life Tap")) then

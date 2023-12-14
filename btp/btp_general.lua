@@ -676,6 +676,30 @@ function btp_in_range(spell, target)
     end
 end
 
+function btp_get_item(item)
+    hasItem  = false;
+    itemBag  = 0;
+    itemSlot = 1;
+
+    for bag=0,4 do
+      for slot=1,C_Container.GetContainerNumSlots(bag) do
+        if (C_Container.GetContainerItemLink(bag,slot)) then
+          if (string.find(C_Container.GetContainerItemLink(bag,slot), item)) then
+              start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
+              if (duration - (GetTime() - start) <= 0) then
+                  hasItem  = true;
+                  itemBag  = bag;
+                  itemSlot = slot;
+              end
+              break;
+          end
+        end
+      end
+    end
+
+    return hasItem, itemBag, itemSlot;
+end
+
 function btp_check_dist(target, dist)
     if(target == nil or dist == nil) then return false; end
 
@@ -701,9 +725,10 @@ function BTP_Decursive()
             j = 1;
 
             while (debuffName) do
-                debuffName, debuffRank, debuffTexture, debuffApplications,
-                debuffType, debuffDuration, debuffTimeLeft, debuffMine,
-                debuffStealable = UnitDebuff(nextPet, j);
+                debuffName, debuffIcon, debuffCount, debuffType,
+                debuffDuration, debuffTimeLeft, debuffMine, debuffStealable,
+                debuffNameplateShowPersonal, spellId, canApplyAura, isBossDebuff,
+                castByPlayer, nameplateShowAll, timeMod = UnitDebuff(nextPet, j);
 
                 if (debuffName and
                     not strfind(debuffName, "Cripple") and
@@ -775,9 +800,10 @@ function BTP_Decursive()
                 --
                 -- Players are more important
                 --
-                debuffName, debuffRank, debuffTexture, debuffApplications,
-                debuffType, debuffDuration, debuffTimeLeft, debuffMine,
-                debuffStealable = UnitDebuff(nextPlayer, j);
+                debuffName, debuffIcon, debuffCount, debuffType,
+                debuffDuration, debuffTimeLeft, debuffMine, debuffStealable,
+                debuffNameplateShowPersonal, spellId, canApplyAura, isBossDebuff,
+                castByPlayer, nameplateShowAll, timeMod = UnitDebuff(nextPlayer, j);
 
                 if (debuffName and not strfind(debuffName, "Cripple") and
                     debuffType and strfind(debuffType, "Magic") and
@@ -856,9 +882,10 @@ function BTP_Decursive()
         --
         -- our pet
         --
-        debuffName, debuffRank, debuffTexture, debuffApplications,
-        debuffType, debuffDuration, debuffTimeLeft, debuffMine,
-        debuffStealable = UnitDebuff("pet", i);
+        debuffName, debuffIcon, debuffCount, debuffType,
+        debuffDuration, debuffTimeLeft, debuffMine, debuffStealable,
+        debuffNameplateShowPersonal, spellId, canApplyAura, isBossDebuff,
+        castByPlayer, nameplateShowAll, timeMod = UnitDebuff("pet", i);
 
         if (debuffName and not strfind(debuffName, "Cripple") and
             debuffType and strfind(debuffType, "Magic") and
@@ -934,9 +961,10 @@ function BTP_Decursive()
         --
         -- I am more important
         --
-        debuffName, debuffRank, debuffTexture, debuffApplications,
-        debuffType, debuffDuration, debuffTimeLeft, debuffMine,
-        debuffStealable = UnitDebuff("player", i);
+        debuffName, debuffIcon, debuffCount, debuffType,
+        debuffDuration, debuffTimeLeft, debuffMine, debuffStealable,
+        debuffNameplateShowPersonal, spellId, canApplyAura, isBossDebuff,
+        castByPlayer, nameplateShowAll, timeMod = UnitDebuff("player", i);
 
         if (debuffName and not strfind(debuffName, "Cripple") and
             debuffType and strfind(debuffType, "Magic") and
@@ -1005,9 +1033,8 @@ function BTP_Decursive()
     end
 
     if (UnitClass("player") == "Druid") then
-        if ((hasCurseDebuff or hasPoisonDebuff or
-            (hasMagicDebuff and btp_has_talent("Nature's Cure"))) and
-            btp_cast_spell_on_target("Remove Corruption", debuffPlayer)) then
+        if (hasPoisonDebuff and
+            btp_cast_spell_on_target("Cure Poison", debuffPlayer)) then
             FuckBlizzardTargetUnit("playertarget");
             return true;
         end
@@ -2888,93 +2915,17 @@ function SelfHeal(healthThresh, manaThresh)
     healthPotionBag = 0;
     healthPotionSlot = 1;
 
-    for bag=0,4 do
-      for slot=1,C_Container.GetContainerNumSlots(bag) do
-        if (C_Container.GetContainerItemLink(bag,slot)) then
-          if (string.find(C_Container.GetContainerItemLink(bag,slot), "Healthstone")) then
-              start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-              if (duration - (GetTime() - start) <= 0) then
-                  hasHealthStone = true;
-                  healthStoneBag = bag;
-                  healthStoneSlot = slot;
-              end
-              break;
-          end
-        end
-      end
-    end
+    hasHealthStone, healthStoneBag, healthStoneSlot = btp_get_item("Healthstone");
 
     isArena, isRegistered = IsActiveBattlefieldArena();
     if (not isArena) then
-        for bag=0,4 do
-          for slot=1,C_Container.GetContainerNumSlots(bag) do
-            if (C_Container.GetContainerItemLink(bag,slot)) then
-              if (string.find(C_Container.GetContainerItemLink(bag,slot),
-                                                   "Mana Potion")) then
-                  start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-                  if (duration - (GetTime() - start) <= 0) then
-                      hasManaPotion = true;
-                      manaPotionBag = bag;
-                      manaPotionSlot = slot;
-                  end
-                  break;
-              end
-            end
-          end
-        end
-
-        for bag=0,4 do
-          for slot=1,C_Container.GetContainerNumSlots(bag) do
-            if (C_Container.GetContainerItemLink(bag,slot)) then
-              if (string.find(C_Container.GetContainerItemLink(bag,slot),
-                  "Healing Potion")) then
-                  start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-                  if (duration - (GetTime() - start) <= 0) then
-                      hasHealthPotion = true;
-                      healthPotionBag = bag;
-                      healthPotionSlot = slot;
-                  end
-                  break;
-              end
-            end
-          end
-        end
+        hasManaPotion, manaPotionBag, manaPotionSlot = btp_get_item("Mana Potion");
+        hasHealthPotion, healthPotionBag, healthPotionSlot = btp_get_item("Healing Potion");
     end
 
     if (GetNumBattlefieldScores() > 0 and not isArena) then
-        for bag=0,4 do
-          for slot=1,C_Container.GetContainerNumSlots(bag) do
-            if (C_Container.GetContainerItemLink(bag,slot)) then
-              if (string.find(C_Container.GetContainerItemLink(bag,slot),
-                  "Mana Draught")) then
-                  start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-                  if (duration - (GetTime() - start) <= 0) then
-                      hasManaPotion = true;
-                      manaPotionBag = bag;
-                      manaPotionSlot = slot;
-                  end
-                  break;
-              end
-            end
-          end
-        end
-
-        for bag=0,4 do
-          for slot=1,C_Container.GetContainerNumSlots(bag) do
-            if (C_Container.GetContainerItemLink(bag,slot)) then
-              if (string.find(C_Container.GetContainerItemLink(bag,slot),
-                  "Healing Draught")) then
-                  start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-                  if (duration - (GetTime() - start) <= 0) then
-                      hasHealthPotion = true;
-                      healthPotionBag = bag;
-                      healthPotionSlot = slot;
-                  end
-                  break;
-              end
-            end
-          end
-        end
+        hasManaPotion, manaPotionBag, manaPotionSlot = btp_get_item("Mana Draught");
+        hasHealthPotion, healthPotionBag, healthPotionSlot = btp_get_item("Healing Draught");
     end
 
     if (hasHealthStone and UnitAffectingCombat("player") and
@@ -4068,6 +4019,21 @@ function btp_report_afk()
             end
         end
     end
+end
+
+-- returns the number of enemies in combat and in range of an ability
+function btp_enemies_in_range_of(spell)
+    local inRange, unitID = 0;
+    for _, plate in pairs(C_NamePlate.GetNamePlates()) do
+        unitID = plate.namePlateUnitToken;
+        if (UnitCanAttack("player", unitID) and
+            btp_in_range(spell, unitID)) then
+            inRange = inRange + 1;
+        end
+    end
+
+    -- btp_frame_debug(spell .. ": " .. inRange);
+    return inRange;
 end
 
 function btp_bot()

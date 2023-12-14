@@ -35,21 +35,9 @@ function rogue_heal()
 
     ProphetKeyBindings();
 
-    for bag=0,4 do
-      for slot=1,C_Container.GetContainerNumSlots(bag) do
-        if (C_Container.GetContainerItemLink(bag,slot)) then
-          if (string.find(C_Container.GetContainerItemLink(bag,slot), "Bandage")) then
-              start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-              if (duration - (GetTime() - start) <= 0) then
-                  hasBandage = true;
-                  bandageBag = bag;
-                  bandageSlot = slot;
-              end
-              break;
-          end
-        end
-      end
-    end
+    hasBandage, bandageBag, bandageSlot = btp_get_item("Bandage");
+
+    playerHealthRatio =  UnitHealth("player")/UnitHealthMax("player");
 
     --
     -- Bandage Debuff check
@@ -62,8 +50,9 @@ function rogue_heal()
         -- doing a self heal here (heathstones, potions, etc)
         --
         return true;
-    elseif (hasBandage and not hasBandageDebuff and
-            UnitHealth("player")/UnitHealthMax("player") < 1) then
+    elseif (not UnitAffectingCombat("player") and
+            hasBandage and not hasBandageDebuff and
+            playerHealthRatio < ROGUE_THRESH) then
             lastBandage = GetTime();
             FuckBlizzardTargetUnitContainer("player");
             FuckBlizUseContainerItem(bandageBag, bandageSlot);
@@ -78,9 +67,22 @@ function rogue_roach()
 
     ProphetKeyBindings();
 
+    if (btp_free_action()) then
+        return true;
+    end
+
+    hasDummy, dummyBag, dummySlot = btp_get_item("Target Dummy");
+    hasSwift, swiftBag, swiftSlot = btp_get_item("Swiftness Potion");
+
     playerHealthRatio =  UnitHealth("player")/UnitHealthMax("player");
 
-    if (SelfHeal(ROGUE_THRESH, 0)) then
+    -- Sprint
+    hasSprint, mySprint, numSprint, expSprint = btp_check_buff(
+        "Sprint",
+        "player"
+    );
+
+    if (rogue_heal()) then
         --
         -- doing a self heal here (heathstones, potions, etc)
         --
@@ -93,6 +95,12 @@ function rogue_roach()
         return true;
     elseif (not UnitAffectingCombat("player") and btp_cast_spell("Stealth")) then
         return true;
+    elseif (UnitAffectingCombat("player") and not hasSprint and hasSwift) then
+        FuckBlizUseContainerItem(swiftBag, swiftSlot);
+        return true;
+    elseif (UnitAffectingCombat("player") and hasDummy) then
+        FuckBlizUseContainerItem(dummyBag, dummySlot);
+        return true;
     end
 end
 
@@ -102,6 +110,10 @@ function rogue_dps()
     end
 
     ProphetKeyBindings();
+
+    if (btp_free_action()) then
+        return true;
+    end
 
     --
     -- buff checks

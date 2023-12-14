@@ -113,21 +113,7 @@ function druid_heal()
 
     ProphetKeyBindings();
 
-    for bag=0,4 do
-      for slot=1,C_Container.GetContainerNumSlots(bag) do
-        if (C_Container.GetContainerItemLink(bag,slot)) then
-          if (string.find(C_Container.GetContainerItemLink(bag,slot), "Bandage")) then
-              start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-              if (duration - (GetTime() - start) <= 0) then
-                  hasBandage = true;
-                  bandageBag = bag;
-                  bandageSlot = slot;
-              end
-              break;
-          end
-        end
-      end
-    end
+    hasBandage, bandageBag, bandageSlot = btp_get_item("Bandage");
 
     if (SelfHeal(DR_THRESH, DR_MANA/3)) then
         --
@@ -173,11 +159,11 @@ function druid_heal()
         end
     end
 
-    -- if ((((GetTime() - lastDecurse) >= 5) or blockOnDecurse) and
-    --     BTP_Decursive()) then
-    --     lastDecurse = GetTime();
-    --     return true;
-    -- end
+    if ((((GetTime() - lastDecurse) >= 5) or blockOnDecurse) and
+        BTP_Decursive()) then
+        lastDecurse = GetTime();
+        return true;
+    end
 
     --
     -- Check for large heals
@@ -359,9 +345,9 @@ function druid_heal()
         end
     end
 
-    -- if (BTP_Decursive()) then
-    --     return true;
-    -- end
+    if (BTP_Decursive()) then
+        return true;
+    end
 
     return false;
 end
@@ -386,16 +372,7 @@ function druid_buff()
         goodToBuff = false;
     end
 
-    for bag=0,4 do
-      for slot=1,C_Container.GetContainerNumSlots(bag) do
-        if (C_Container.GetContainerItemLink(bag,slot)) then
-          if (string.find(C_Container.GetContainerItemLink(bag,slot), "Wild")) then
-              hasWild = true;
-              break;
-          end
-        end
-      end
-    end
+    hasWild, wildBag, wildSlot = btp_get_item("Bandage");
 
     --
     -- Mark of the Wild check
@@ -520,7 +497,13 @@ function druid_dps()
     -- Moonfire check
     --
     hasMoonfire, myMoonfire,
-    numMoonfire, expMoonFire = btp_check_debuff("Moonfire", "target");
+    numMoonfire, expMoonfire = btp_check_debuff("Moonfire", "target");
+
+    --
+    -- Faerie Fire check
+    --
+    hasFaerieFire, myFaerieFire,
+    numFaerieFire, expFaerieFire = btp_check_debuff("Faerie Fire", "target");
 
     --
     -- Insect Swarm check
@@ -541,9 +524,13 @@ function druid_dps()
         FuckBlizzardTargetUnit("playertarget");
         return true;
     elseif (not UnitAffectingCombat("player") and
+            btp_cast_spell("Starfire")) then
+        return true;
+    elseif (not UnitAffectingCombat("player") and
             btp_cast_spell("Wrath")) then
         return true;
     elseif ((btp_is_casting("target") or btp_is_channeling("target")) and
+            btp_check_dist("target", 3) and
             btp_check_dist("target", 3) and btp_cast_spell("War Stomp")) then
         return true;
     elseif (targetHealthRatio < .20 and not hasEntanglingRoots and
@@ -554,7 +541,7 @@ function druid_dps()
         return true;
     elseif (not myMoonfire and btp_cast_spell("Moonfire")) then
         return true;
-    elseif (playerHealthRatio == 1 and btp_cast_spell("Starfire")) then
+    elseif (not myFaerieFire and btp_cast_spell("Faerie Fire")) then
         return true;
     elseif (btp_cast_spell("Wrath")) then
         return true;
@@ -570,29 +557,37 @@ function druid_roach()
 
     ProphetKeyBindings();
 
-    --
-    -- Nature's Swiftness check
-    --
+    if (btp_free_action()) then
+        return true;
+    end
+
+    -- Dash
+    hasDash, myDash, numDash, expDash = btp_check_buff(
+        "Dash", "player"
+    );
+
+    -- Nature's Swiftness
     hasNaturesSwiftness, myNaturesSwiftness,
     numNaturesSwiftness, expNaturesSwiftness = btp_check_buff(
         "Nature's Swiftness", "player"
     );
 
-    --
-    -- Rejuvination check
-    --
+    -- Rejuvination
     hasRejuvenation, myRejuvenation,
     numRejuvenation, expRejuvenation = btp_check_buff(
         "Rejuvenation", "player"
     );
 
-    --
-    -- Regrowth check
-    --
+    -- Regrowth
     hasRegrowth, myRegrowth,
     numRegrowth, expRegrowth = btp_check_buff(
         "Regrowth", "player"
     );
+
+    playerHealthRatio =  UnitHealth("player")/UnitHealthMax("player");
+
+    hasDummy, dummyBag, dummySlot = btp_get_item("Target Dummy");
+    hasSwift, swiftBag, swiftSlot = btp_get_item("Swiftness Potion");
 
     if (not myRejuvenation and
         btp_cast_spell_on_target("Rejuvenation", "player")) then
@@ -600,12 +595,12 @@ function druid_roach()
         return true;
     elseif ((myRejuvenation or myRegrowth) and
             UnitAffectingCombat("player") and
-            UnitHealth("player")/UnitHealthMax("player") <= DR_THRESH + DR_SCALAR/2 and
+            playerHealthRatio <= DR_THRESH + DR_SCALAR/2 and
             UnitHealth("player") > 1 and
             btp_cast_spell_on_target("Swiftmend", playerName)) then
             FuckBlizzardTargetUnit("playertarget");
     elseif (UnitAffectingCombat("player") and
-            UnitHealth("player")/UnitHealthMax("player") <= DR_THRESH and
+            playerHealthRatio <= DR_THRESH and
             UnitHealth("player") > 1 and
             (btp_cast_spell_alt("Nature's Swiftness") or hasNaturesSwiftness) and
             btp_cast_spell_on_target("Healing Touch", "player")) then
@@ -613,9 +608,15 @@ function druid_roach()
             return true;
     elseif (UnitAffectingCombat("player") and
             not btp_check_buff("Nature's Grasp", "player") and
-            UnitHealth("player")/UnitHealthMax("player") <= (DR_THRESH + DR_SCALAR) and
+            playerHealthRatio <= (DR_THRESH + DR_SCALAR) and
             UnitHealth("player") > 1 and
             btp_cast_spell("Nature's Grasp")) then
+        return true;
+    elseif (UnitAffectingCombat("player") and not hasDash and hasSwift) then
+        FuckBlizUseContainerItem(swiftBag, swiftSlot);
+        return true;
+    elseif (UnitAffectingCombat("player") and hasDummy) then
+        FuckBlizUseContainerItem(dummyBag, dummySlot);
         return true;
     end
 

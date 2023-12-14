@@ -23,6 +23,8 @@ S_BATTLE  = 1;
 S_DEFENSE = 2;
 S_BESERK  = 3;
 
+lastDisarm = 0;
+
 function btp_warrior_initialize()
     btp_frame_debug("warrior INIT");
 
@@ -41,21 +43,7 @@ function warrior_heal()
 
     ProphetKeyBindings();
 
-    for bag=0,4 do
-      for slot=1,C_Container.GetContainerNumSlots(bag) do
-        if (C_Container.GetContainerItemLink(bag,slot)) then
-          if (string.find(C_Container.GetContainerItemLink(bag,slot), "Bandage")) then
-              start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
-              if (duration - (GetTime() - start) <= 0) then
-                  hasBandage = true;
-                  bandageBag = bag;
-                  bandageSlot = slot;
-              end
-              break;
-          end
-        end
-      end
-    end
+    hasBandage, bandageBag, bandageSlot = btp_get_item("Bandage");
 
     --
     -- Bandage Debuff check
@@ -73,6 +61,7 @@ function warrior_heal()
     elseif (not UnitAffectingCombat("player") and
             playerHealthRatio < WARRIOR_THRESH and
             hasBandage and not hasBandageDebuff) then
+            lastBandage = GetTime();
             FuckBlizzardTargetUnitContainer("player");
             FuckBlizUseContainerItem(bandageBag, bandageSlot);
         return true;
@@ -86,6 +75,13 @@ function warrior_roach()
 
     ProphetKeyBindings();
 
+    if (btp_free_action()) then
+        return true;
+    end
+
+    hasDummy, dummyBag, dummySlot = btp_get_item("Target Dummy");
+    hasSwift, swiftBag, swiftSlot = btp_get_item("Swiftness Potion");
+
     -- get the stance
     stance = GetShapeshiftForm();
 
@@ -97,8 +93,6 @@ function warrior_roach()
 
     playerHealthRatio =  UnitHealth("player")/UnitHealthMax("player");
 
-    warrior_heal();
-
     --
     -- instant actions (these don't have a GCD)
     --
@@ -108,7 +102,16 @@ function warrior_roach()
     end
 
     -- primary actions
-    if (not hasHamstring and btp_cast_spell("Hamstring")) then
+    if (warrior_heal()) then
+        return true;
+    elseif (UnitAffectingCombat("player") and not hasHamstring and
+            btp_cast_spell("Hamstring")) then
+        return true;
+    elseif (UnitAffectingCombat("player") and hasSwift) then
+        FuckBlizUseContainerItem(swiftBag, swiftSlot);
+        return true;
+    elseif (UnitAffectingCombat("player") and hasDummy) then
+        FuckBlizUseContainerItem(dummyBag, dummySlot);
         return true;
     end
 end
@@ -119,6 +122,10 @@ function warrior_dps()
     end
 
     ProphetKeyBindings();
+
+    if (btp_free_action()) then
+        return true;
+    end
 
     -- get the stance
     stance = GetShapeshiftForm();
@@ -178,7 +185,7 @@ function warrior_dps()
     warrior_heal();
 
     if (UnitAffectingCombat("player") and rage < 25 and
-        playerHealthRatio > .50 and btp_cast_spell_alt("Bloodrage")) then
+        playerHealthRatio > .75 and btp_cast_spell_alt("Bloodrage")) then
         -- pop bloodrage
     elseif (UnitAffectingCombat("player") and stance ~= S_BATTLE and
             rage < W_RAGE_RETENTION and playerHealthRatio > .50 and
@@ -203,6 +210,11 @@ function warrior_dps()
     elseif (targetHealthRatio < .20 and btp_check_dist("target", 3) and
             btp_cast_spell("Execute")) then
         return true;
+    elseif (btp_enemies_in_range_of("Challenging Shout") > 3 and btp_check_dist("target", 3) and
+            UnitThreatSituation("player", "target") ~= nil and
+            UnitThreatSituation("player", "target") < 3 and
+            btp_cast_spell("Challenging Shout")) then
+        return true;
     elseif (btp_check_dist("target", 3) and
             UnitThreatSituation("player", "target") ~= nil and
             UnitThreatSituation("player", "target") < 3 and
@@ -216,17 +228,25 @@ function warrior_dps()
     elseif (not mySunder and numSunder < 1 and btp_check_dist("target", 3) and
             btp_cast_spell("Sunder Armor")) then
         return true;
+    elseif (btp_enemies_in_range_of("Cleave") > 2 and btp_check_dist("target", 3) and
+            btp_cast_spell("Cleave")) then
+        return true;
     elseif (playerHealthRatio < .60 and
             btp_cast_spell("Retaliation")) then
         return true;
-    elseif (playerHealthRatio < .80 and
+    elseif (playerHealthRatio < .90 and btp_check_dist("target", 3) and
             btp_cast_spell("Shield Block")) then
         return true;
     elseif (btp_check_dist("target", 3) and
             btp_cast_spell("Shield Slam")) then
         return true;
     elseif (btp_check_dist("target", 3) and
+            (GetTime() - lastDisarm) > 10 and targetHealthRatio > .20 and
+            (UnitCreatureType("target") == "Dragonkin" or
+             UnitCreatureType("target") == "Demon" or
+             UnitCreatureType("target") == "Humanoid") and
             btp_cast_spell("Disarm")) then
+        lastDisarm = GetTime();
         return true;
     elseif (btp_check_dist("target", 3) and
             btp_cast_spell("Bloodthirst")) then
@@ -237,14 +257,14 @@ function warrior_dps()
     elseif (targetHealthRatio < .20 and not hasHamstring and
             btp_check_dist("target", 3) and btp_cast_spell("Hamstring")) then
         return true;
-    elseif (not hasDemoShout and
+    elseif (not hasDemoShout and targetHealthRatio > .20 and
             btp_cast_spell("Demoralizing Shout")) then
         return true;
     elseif (not hasBattleShout and
             btp_cast_spell("Battle Shout")) then
         return true;
-    elseif (not myClap and btp_check_dist("target", 3) and
-            btp_cast_spell("Thunder Clap")) then
+    elseif (not myClap and btp_enemies_in_range_of("Thunder Clap") > 2 and
+            btp_check_dist("target", 3) and btp_cast_spell("Thunder Clap")) then
         return true;
     elseif (rage > 15 and not myRend and btp_check_dist("target", 3) and
             UnitCreatureType("target") ~= "Elemental" and
