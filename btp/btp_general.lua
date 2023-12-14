@@ -240,6 +240,53 @@ emote           = { "ANGRY", "BARK", "BASHFUL", "BEG", "BURP", "BITE",
                     "KISS", "KISS", "DANCE", "DANCE", "DANCE", "DANCE",
                     "DANCE", "BEG", "BEG", "BEG", "BEG", "BEG", "COWER" };
 
+CONFIG_OPTS = { };
+-- is the bot in pvpmode
+CONFIG_OPTS["PVP"] = { };
+CONFIG_OPTS["PVP"]["TYPE"] = TYPE_BOOL;
+CONFIG_OPTS["PVP"]["VALUE"] = true;
+CONFIG_OPTS["PVP"]["DESC"] = "PVP mode On/Off";
+-- should the bot heal people
+CONFIG_OPTS["HEAL"] = { };
+CONFIG_OPTS["HEAL"]["TYPE"] = TYPE_BOOL;
+CONFIG_OPTS["HEAL"]["VALUE"] = true;
+CONFIG_OPTS["HEAL"]["DESC"] = "Healing On/Off";
+-- should the bot buff people
+CONFIG_OPTS["BUFF"] = { };
+CONFIG_OPTS["BUFF"]["TYPE"] = TYPE_BOOL;
+CONFIG_OPTS["BUFF"]["VALUE"] = true;
+CONFIG_OPTS["BUFF"]["DESC"] = "Buffing On/Off";
+-- should the bot stop while casting a spell that chanels
+CONFIG_OPTS["STOP"] = { };
+CONFIG_OPTS["STOP"]["TYPE"] = TYPE_BOOL;
+CONFIG_OPTS["STOP"]["VALUE"] = true;
+CONFIG_OPTS["STOP"]["DESC"] = "Stop while casting On/Off";
+-- should the bot use potions
+CONFIG_OPTS["POT"] = { };
+CONFIG_OPTS["POT"]["TYPE"] = TYPE_BOOL;
+CONFIG_OPTS["POT"]["VALUE"] = true;
+CONFIG_OPTS["POT"]["DESC"] = "Drink Potions On/Off";
+-- who the bot should follow
+CONFIG_OPTS["FOLLOW"] = { };
+CONFIG_OPTS["FOLLOW"]["TYPE"] = TYPE_STRING;
+CONFIG_OPTS["FOLLOW"]["VALUE"] = "Guild";
+CONFIG_OPTS["FOLLOW"]["DESC"] = "Who to follow";
+-- should the bot drink it's watter
+CONFIG_OPTS["DRINK"] = { };
+CONFIG_OPTS["DRINK"]["TYPE"] = TYPE_BOOL;
+CONFIG_OPTS["DRINK"]["VALUE"] = true;
+CONFIG_OPTS["DRINK"]["DESC"] = "Drink Watter On/Off";
+-- the bot will attack your target when in combat
+CONFIG_OPTS["DPS"] = { };
+CONFIG_OPTS["DPS"]["TYPE"] = TYPE_BOOL;
+CONFIG_OPTS["DPS"]["VALUE"] = false;
+CONFIG_OPTS["DPS"]["DESC"] = "DPS mode On/Off";
+
+-- these should be set per class in the init method
+-- look at btp_priest_initiliaze() for an example.
+BTP_CLASS_CALLBACKS = {};
+
+
 function btp_general_initialize()
     i       = 1;
     r       = 1;
@@ -431,6 +478,11 @@ function btp_general_initialize()
             return;
         end
     end
+
+    btp_set_opt("HEAL", true);
+    btp_set_opt("BUFF", true);
+    btp_set_opt("FOLLOW", true);
+    btp_set_opt("DPS", false);
 end
 
 --
@@ -3718,42 +3770,50 @@ function btp_health_status(thresh, raidHeal)
     return false;
 end
 
+function btp_class_callback(callback)
+    local player_class = UnitClass("player")
+    local class_callbacks = BTP_CLASS_CALLBACKS[player_class]
+
+    if (not class_callbacks) then
+        -- btp_frame_debug("No callbacks for " .. player_class);
+        return false
+    end
+    
+    class_callback_function = class_callbacks[callback];
+    -- btp_frame_debug("RUNNING: " .. player_class .. " " .. callback);
+    return class_callback_function()
+end
+
 -- this is the begining of the new bot function
 function btp_bot_new()
+    player_class = UnitClass("player");
 	-- first bind our keys
 	ProphetKeyBindings();
+    --[[
+    local AceSerializer = LibStub:GetLibrary("AceSerializer-3.0");
+    local serialized = AceSerializer:Serialize(BTP_CLASS_CALLBACKS["Priest"]);
+    print (serialized);
+    ]]
 
     -- check our state
     btp_bot_init();
 
     -- check who to follow
-    local followPlayer = btp_pick_follow()
-    if followPlayer and btpFollow and not stopMoving then
-        FollowUnit(followPlayer)
+    local follow_unit = btp_pick_follow();
+    if (btp_check_opt("FOLLOW") and follow_unit and btp_should_follow(follow_unit)) then
+        FollowUnit(follow_unit);
     end
 
-    -- if we are in CONFIG_OPTS[DPS] is ann run
-    --[[
+    if (btp_check_opt("HEAL") and btp_class_callback("heal")) then return true; end
+    if (btp_check_opt("BUFF") and btp_class_callback("buff")) then return true; end
+    if (btp_check_opt("DPS") and btp_class_callback("dps")) then return true; end
+end
 
-    if(btp_check_opt(DPS)) then
-        if(btp_bot_dps()) then return ture; end
+function btp_should_follow(unit)
+    if unit and btpFollow and not stopMoving then
+        return true;
     end
-    ]]
-
-    if (UnitClass("player") == "Priest") then
-        btp_priest_heal();
-        PriestBuff();
-    elseif (UnitClass("player") == "Druid") then
-        druid_heal();
-        druid_buff();
-    end
-
-    if (UnitClass("player") == "Druid") then
-        druid_heal();
-        druid_buff();
-    end
-
-
+    return false
 end
 
 function btp_pick_follow()
@@ -3761,7 +3821,6 @@ function btp_pick_follow()
         if (not btp_dont_follow(UnitName(nextPlayer)) and
             UnitName(nextPlayer) ~= UnitName("player") and
             btp_check_dist(nextPlayer, 1)) then
-            -- btp_frame_debug("FOLLOW: " .. UnitName(nextPlayer));
             return nextPlayer;
         end
     end
@@ -3927,6 +3986,14 @@ end
 
 -- check an option in CONFIG_OPTS
 function btp_check_opt(optname)
+    if (CONFIG_OPTS[optname] == nil) then
+        btp_frame_debug("Unknown option: " .. optname);
+        return false;
+    end
+    if (CONFIG_OPTS[optname]["VALUE"] == nil) then
+        btp_frame_debug("No value for option: " .. optname);
+        return false;
+    end 
     return CONFIG_OPTS[optname]["VALUE"];
 end
 
@@ -6211,6 +6278,15 @@ end
 
 function btp_unit_has_threat(unit)
     if (UnitThreatSituation(unit) > 0) then
+        return true;
+    end
+    return false;
+end
+
+function btp_is_soft_target(unit)
+    -- warriors need rage, hunter can feign, paladins, should have armor
+    local soft_target_classes = {"Priest", "Mage", "Warlock", "Druid", "Shaman", "Rouge"};
+    if table.includes(classes, UnitClass(unit)) then
         return true;
     end
     return false;
