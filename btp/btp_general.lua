@@ -240,54 +240,103 @@ emote           = { "ANGRY", "BARK", "BASHFUL", "BEG", "BURP", "BITE",
                     "KISS", "KISS", "DANCE", "DANCE", "DANCE", "DANCE",
                     "DANCE", "BEG", "BEG", "BEG", "BEG", "BEG", "COWER" };
 
-CONFIG_OPTS = { };
--- is the bot in pvpmode
-CONFIG_OPTS["PVP"] = { };
-CONFIG_OPTS["PVP"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["PVP"]["VALUE"] = true;
-CONFIG_OPTS["PVP"]["DESC"] = "PVP mode On/Off";
--- should the bot heal people
-CONFIG_OPTS["HEAL"] = { };
-CONFIG_OPTS["HEAL"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["HEAL"]["VALUE"] = true;
-CONFIG_OPTS["HEAL"]["DESC"] = "Healing On/Off";
--- should the bot buff people
-CONFIG_OPTS["BUFF"] = { };
-CONFIG_OPTS["BUFF"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["BUFF"]["VALUE"] = true;
-CONFIG_OPTS["BUFF"]["DESC"] = "Buffing On/Off";
--- should the bot stop while casting a spell that chanels
-CONFIG_OPTS["STOP"] = { };
-CONFIG_OPTS["STOP"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["STOP"]["VALUE"] = true;
-CONFIG_OPTS["STOP"]["DESC"] = "Stop while casting On/Off";
--- should the bot use potions
-CONFIG_OPTS["POT"] = { };
-CONFIG_OPTS["POT"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["POT"]["VALUE"] = true;
-CONFIG_OPTS["POT"]["DESC"] = "Drink Potions On/Off";
--- who the bot should follow
-CONFIG_OPTS["FOLLOW"] = { };
-CONFIG_OPTS["FOLLOW"]["TYPE"] = TYPE_STRING;
-CONFIG_OPTS["FOLLOW"]["VALUE"] = "Guild";
-CONFIG_OPTS["FOLLOW"]["DESC"] = "Who to follow";
--- should the bot drink it's watter
-CONFIG_OPTS["DRINK"] = { };
-CONFIG_OPTS["DRINK"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["DRINK"]["VALUE"] = true;
-CONFIG_OPTS["DRINK"]["DESC"] = "Drink Watter On/Off";
--- the bot will attack your target when in combat
-CONFIG_OPTS["DPS"] = { };
-CONFIG_OPTS["DPS"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["DPS"]["VALUE"] = false;
-CONFIG_OPTS["DPS"]["DESC"] = "DPS mode On/Off";
+
+-- heal spell ranks and minimum target levels, might  want to add buffs to this as well?
+local BTP_SPELL_LEVEL_REQ = {
+    ["Lesser Heal"] = {1, 1, 1}, -- Ranks 1-3
+    ["Renew"] = {1, 10, 14, 20, 26, 32, 38}, -- Ranks 1-7
+    ["Heal"] = {10, 16, 22, 28, 34}, -- Ranks 1-4
+    ["Flash Heal"] = {16, 20, 26, 32, 38, 44, 50, 56, 60}, -- Ranks 1-9
+    ["Greater Heal"] = {34, 40, 46, 52, 58, 60}, -- Ranks 1-6
+    ["Prayer of Healing"] = {25, 30, 40, 50, 60}, -- Ranks 1-5
+    ["Power Word: Fortitude"] = {1, 12, 24, 36, 48, 60}, -- Ranks 1-6
+    ["Shadow Protection"] = {30, 42, 56}, -- Ranks 1-3
+    -- Add any other healing spells and their ranks as necessary
+
+    ["Rejuvenation"] = {4, 10, 16, 22, 28, 34, 40, 46, 52, 58, 60}, -- Ranks 1-11
+    ["Regrowth"] = {12, 18, 24, 30, 36, 44, 52, 60}, -- Ranks 1-8
+    ["Healing Touch"] = {1, 8, 14, 20, 26, 32, 38, 44, 50, 56, 60}, -- Ranks 1-11
+    ["Tranquility"] = {20, 30, 40, 50, 60}, -- Ranks 1-5
+    ["Swiftmend"] = {60}, -- Talent spell, only one rank
+    -- Include other relevant Druid healing spells and their ranks as necessary
+
+    ["Healing Wave"] = {1, 6, 12, 18, 24, 32, 40, 48, 56, 60}, -- Ranks 1-10
+    ["Lesser Healing Wave"] = {20, 28, 36, 44, 52, 60}, -- Ranks 1-6
+    ["Chain Heal"] = {40, 46, 54, 61}, -- Ranks 1-4
+    -- Include other relevant Shaman healing spells and their ranks as necessary
+ 
+    ["Holy Light"] = {1, 6, 14, 22, 30, 38, 46, 54, 60}, -- Ranks 1-9
+    ["Flash of Light"] = {20, 26, 34, 42, 50, 58}, -- Ranks 1-6
+    -- Include other relevant Paladin healing spells and their ranks as necessary
+}
+
+-- heal spell minimum heal ammounts.
+local BTP_SPELL_MIN_HEAL = {
+    ["Lesser Heal"] = {46, 71, 135}, -- Ranks 1-3
+    ["Renew"] = {45, 100, 175, 245, 315, 400, 510}, -- Ranks 1-7
+    ["Heal"] = {295, 429, 566, 712}, -- Ranks 1-4
+    ["Flash Heal"] = {202, 269, 339, 414, 534, 662, 828, 958, 1101}, -- Ranks 1-9
+    ["Greater Heal"] = {924, 1178, 1470, 1813, 2234, 2396}, -- Ranks 1-6
+    ["Prayer of Healing"] = {312, 458, 675, 939, 1246}, -- Ranks 1-5
+
+    ["Rejuvenation"] = {32, 56, 116, 180, 244, 304, 388, 488, 608, 756, 888}, -- Ranks 1-11
+    ["Regrowth"] = {93, 176, 255, 336, 425, 534, 672, 839}, -- Ranks 1-8
+    ["Healing Touch"] = {37, 88, 195, 363, 572, 742, 936, 1199, 1516, 1890, 2267}, -- Ranks 1-11
+    ["Tranquility"] = {294, 455, 608, 765, 945}, -- Ranks 1-5
+    ["Swiftmend"] = {900}, -- Talent spell, depends on Rejuvenation or Regrowth
+
+    ["Healing Wave"] = {34, 64, 129, 268, 376, 536, 740, 1017, 1361, 1620}, -- Ranks 1-10
+    ["Lesser Healing Wave"] = {162, 247, 337, 458, 631, 832}, -- Ranks 1-6
+    ["Chain Heal"] = {320, 405, 551, 734}, -- Ranks 1-4
+
+    ["Holy Light"] = {41, 76, 159, 310, 491, 698, 945, 1246, 1590}, -- Ranks 1-9
+    ["Flash of Light"] = {67, 102, 140, 182, 235, 292}, -- Ranks 1-6
+}
+
+local BTP_SPELL_MANA_COST = {
+    ["Lesser Heal"] = {30, 45, 75}, -- Ranks 1-3
+    ["Renew"] = {30, 65, 105, 140, 170, 205, 250}, -- Ranks 1-7
+    ["Heal"] = {155, 205, 255, 305}, -- Ranks 1-4
+    ["Flash Heal"] = {125, 155, 185, 215, 265, 315, 380, 410, 450}, -- Ranks 1-9
+    ["Greater Heal"] = {370, 455, 545, 655, 750, 800}, -- Ranks 1-6
+    ["Prayer of Healing"] = {410, 560, 770, 1030, 1250}, -- Ranks 1-5
+
+    ["Rejuvenation"] = {25, 40, 75, 105, 135, 160, 195, 235, 280, 335, 360}, -- Ranks 1-11
+    ["Regrowth"] = {120, 205, 280, 350, 420, 510, 615, 740}, -- Ranks 1-8
+    ["Healing Touch"] = {25, 55, 110, 185, 270, 335, 405, 495, 600, 720, 800}, -- Ranks 1-11
+    ["Tranquility"] = {125, 175, 250, 335, 405}, -- Ranks 1-5
+    ["Swiftmend"] = {999}, -- Talent spell, depends on Rejuvenation or Regrowth TODO: figure this out
+
+    ["Healing Wave"] = {25, 45, 80, 155, 200, 265, 340, 440, 560, 620}, -- Ranks 1-10
+    ["Lesser Healing Wave"] = {105, 145, 185, 200, 265, 340}, -- Ranks 1-6
+    ["Chain Heal"] = {260, 315, 405, 540}, -- Ranks 1-4
+
+    ["Holy Light"] = {35, 60, 110, 190, 275, 365, 465, 580, 660}, -- Ranks 1-9
+    ["Flash of Light"] = {35, 50, 70, 90, 115, 140}, -- Ranks 1-6
+}
 
 -- these should be set per class in the init method
--- look at btp_priest_initiliaze() for an example.
+-- look at btp_priest_initalize() for an example.
 BTP_CLASS_CALLBACKS = {};
 
 
+function btp_macro_remove_heal_ranks()
+    btp_frame_debug("btp_macro_remove_heal_ranks()");
+    for spellName, spellRanks in pairs(BTP_SPELL_LEVEL_REQ) do
+        for rank = 1, #spellRanks do
+            local macroName = spellName .. "Rank" .. rank;
+            if GetMacroInfo(macroName) then
+                btp_frame_debug("Deleting macro: " .. macroName);
+                DeleteMacro(macroName)
+            end
+        end
+    end
+end
+
 function btp_general_initialize()
+    btp_frame_debug("btp_general_initialize()");
+    btp_macro_remove_heal_ranks();
+    create_config_opts_commands();
     i       = 1;
     r       = 1;
     g       = 1;
@@ -299,7 +348,18 @@ function btp_general_initialize()
                 "P","Q","R","S","T","U","V","W","X","Y","Z","`","-","=","[",
                 "]",";","'",",",".","/","1","2","3","4","5","6","7","8",
                 "9" };
-
+    SlashCmdList["BTPDEBUG"] = function() print_sorted_table(BTP_DEBUG_MESSAGES, true); BTP_DEBUG_MESSAGES = {}; end
+    SLASH_BTPDEBUG1 = "/btpdebug";
+    SlashCmdList["BTPSOPT"] = function(msg)
+        local args = {}
+        for word in msg:gmatch("%S+") do table.insert(args, word) end
+        if #args == 2 then
+            btp_config_set(args[1], args[2])
+        else
+            print("Usage: /btpsopt <option> <value>")
+        end
+    end
+    SLASH_BTPSOPT1 = "/btpsopt";
     SlashCmdList["BTPCC"] = btp_cc;
     SLASH_BTPCC1 = "/btpcc";
     SlashCmdList["FREEA"] = btp_free_action;
@@ -308,8 +368,10 @@ function btp_general_initialize()
     SLASH_GENB1 = "/printbuffs";
     SlashCmdList["BOT"] = btp_bot;
     SLASH_BOT1 = "/btpbot";
-    SlashCmdList["BOTNEW"] = btp_bot_new;
+    SlashCmdList["BOTNEW"] = btp_helper_go;
     SLASH_BOTNEW1 = "/btpbotnew";
+    SlashCmdList["BTPKEYMAP"] = function() btp_bind_keys(); print_sorted_table(fuckBlizMapping); end;
+    SLASH_BTPKEYMAP1 = "/btpkeymap";
 
     SlashCmdList["BTPSTOP"] = BTP_Stop;
     SLASH_BTPSTOP1 = "/btpstop";
@@ -366,6 +428,10 @@ function btp_general_initialize()
         btp_loot(mode)
     end;
     SLASH_BTPLOOT1 = "/btploot";
+    SlashCmdList["DPSMODE"] = btp_dps_mode_toggle;
+    SLASH_DPSMODE1 = "/dps";
+
+
 
     --
     -- This is a bind for the pet attack which does not 
@@ -478,11 +544,6 @@ function btp_general_initialize()
             return;
         end
     end
-
-    btp_set_opt("HEAL", true);
-    btp_set_opt("BUFF", true);
-    btp_set_opt("FOLLOW", true);
-    btp_set_opt("DPS", false);
 end
 
 --
@@ -521,27 +582,8 @@ function btp_init_spells()
     local i = 1;
 
     -- btp_frame_debug("init spells");
-
-    repeat
-        spell, rank = GetSpellBookItemName(i, BOOKTYPE_SPELL)
-        if(spell ~= nil and rank ~= nil) then
-            if(CONFIG_SPELLS[spell] == nil) then
-                CONFIG_SPELLS[spell] = true;
-            end
-        end
-        i = i + 1;
-    until (not spell)
-
-    i = 1;
-    repeat
-        spell, rank = GetSpellBookItemName(i, BOOKTYPE_PET)
-        if(spell ~= nil and rank ~= nil) then
-            if(CONFIG_SPELLS[spell] == nil) then
-                CONFIG_SPELLS[spell] = true;
-            end
-        end
-        i = i + 1;
-    until (not spell)
+    BTP_SPELLBOOK = btp_build_valid_spellbook(BOOKTYPE_SPELL);
+    BTP_SPELLBOOK_PET = btp_build_valid_spellbook(BOOKTYPE_PET);
 end
 
 function FuckBlizzardTargetUnit(unit_id)
@@ -629,10 +671,10 @@ function FuckBlizzardTargetUnitItem(unit_id)
 end
 
 function FuckBlizzardByName(cmd)
+    btp_debug("CMD: " .. cmd);
     if (fuckBlizMapping[cmd]) then
         btp_frame_set_color_hex("PA", keyToColor[fuckBlizMapping[cmd]]);
     end
-
     btp_frame_set_color_hex("IT", "FFFFFF");
 end
 
@@ -715,6 +757,18 @@ end
 
 function btp_in_range(spell, target)
     if(spell == nil or target == nil) then return false; end
+
+    name, rank, icon, castTime, minRange, maxRange, spellID, originalIcon
+    = GetSpellInfo(spell);
+
+    -- check if its a valid spell
+    if (spellID == nil) then
+        return false;
+    end
+
+    if (maxRange == nil or maxRange == 0) then
+        return true;
+    end
 
     if (dontCheckDist) then
         return true;
@@ -1205,6 +1259,8 @@ function CleanFrame()
 end
 
 function ProphetKeyBindings()
+    btp_bot_init();
+
     key = "CTRL-";
     letters = { "A","B","C","D","E","F","G","H","I","J","K","L","M","N","O",
                 "P","Q","R","S","T","U","V","W","X","Y","Z","`","-","=","[",
@@ -1350,14 +1406,47 @@ function ProphetKeyBindings()
                end
 
                if (fuckBlizMapping[spellName] == nil) then
-		   if(key=="CTRL-" and letters[j] == ",") then
+		            if(key=="CTRL-" and letters[j] == ",") then
                        j = j + 1;
                    end
                    fuckBlizMapping[spellName] = key .. letters[j];
                    -- btp_frame_debug("key: " .. key .. letters[j] ..
-                   --                 " spell: " .. spellName);
+                   --                 " spell: " .. spellName .. " Rank: " .. spellRank);
                    SetBindingSpell(key .. letters[j], spellName);
                    j = j + 1;
+
+
+if spellName and BTP_SPELL_LEVEL_REQ[spellName] then
+    for rank = 1, #BTP_SPELL_LEVEL_REQ[spellName] do
+        local spellRankName = spellName .. "(Rank " .. rank .. ")";
+        -- only create macros for spells we have
+        -- if (not IsSpellKnown(GetSpellInfo(spellRankName))) then break; end
+        -- if (not btp_get_spell_id(spellRankName)) then break; end
+        if (not btp_get_spell_id(spellRankName)) then break; end
+        local macroName = spellName .. "Rank" .. rank;
+        if not GetMacroInfo(macroName) then
+            CreateMacro(macroName, "INV_MISC_QUESTIONMARK", "/cast " .. spellRankName, nil);
+        end
+        fuckBlizMapping[spellRankName] = key .. letters[j];
+        SetBindingMacro(key .. letters[j], macroName);
+        j = j + 1;
+    end
+end
+
+--[[ THIS WORKS
+if (spellName == "Renew") then
+    for rank = 1, 7 do
+        local renewSpellName = "Renew(Rank " .. rank .. ")";
+        local macroName = "RenewRank" .. rank;
+        CreateMacro(macroName, "INV_MISC_QUESTIONMARK", "/cast " .. renewSpellName, nil);
+        fuckBlizMapping[renewSpellName] = key .. letters[j];
+        SetBindingMacro(key .. letters[j], macroName);
+        j = j + 1;
+    end
+end
+]]
+
+
                end
                           
                if (j > 45 or (j > 36 and (key == "CTRL-" or
@@ -1813,7 +1902,6 @@ function ProphetKeyBindings()
             return true;
         end
     end
-
     return false;
 end
 
@@ -1893,8 +1981,6 @@ function btp_unitid_by_name(pname)
 
 	return nil;
 end
-
-
 
 function btp_general_msg_addon_old(arg2, arg3, arg4)
     if (not botOff) then
@@ -2112,6 +2198,7 @@ function btp_set_macro(buttonName, macro, num)
         btnCC:RegisterForClicks("AnyUp");                 
     end
 
+    -- btp_frame_debug ("ALT-CTRL-SHIFT-" .. num .. " " .. buttonName .. " " .. macro .. "\n")
     btnCC:SetAttribute("type", "macro");
     btnCC:SetAttribute("macrotext", macro);
     SetBindingClick("ALT-CTRL-SHIFT-" .. num, buttonName);
@@ -3294,12 +3381,156 @@ function btp_check_debuff(buff, unit)
     end
 end
 
+function btp_save_previous_state()
+    -- record our previous state, might not need this
+    btp_state_set("previous_cb_spell", btp_state_get("current_cb_spell"));
+    btp_state_set("previous_cb", btp_state_get("current_cb"));
+    btp_state_set("previous_cb_target", btp_state_get("current_cb_target"));
+    btp_state_set("previous_cb_target_name", btp_state_get("current_cb_target_name"));
+    local cb_start_time = btp_state_get("current_cb_start_time") or 0;
+    btp_state_set("previous_cb_runtime", GetTime() - cb_start_time);
+end
+
+function btp_clear_callback_state()
+    btp_state_set("current_cb_spell", nil);
+    btp_state_set("current_cb", nil);
+    btp_state_set("current_cb_target", nil);
+    btp_state_set("current_cb_target_name", nil);
+    btp_state_set("current_cb_start_time", nil);
+end
+
+function btp_stop_casting(sname, unit)
+    btp_save_previous_state();
+    btp_clear_callback_state()
+    current_cb = nil;
+    btp_debug("STOP CASTING");
+    FuckBlizzardByNameStrange("stopcasting");
+    return false;
+end
+
+-- TODO: make this run btp_class_callback("spell_threshold_cb", sname)
+function get_class_heal_threshold(sname)
+    return .98;
+end
+
+function btp_cb_generic_heal(sname)
+    -- get basic unit info
+    local unit_name = UnitName(current_cb_target) or "Unknown";
+    local unit_health = UnitHealth(current_cb_target);
+    local unit_health_max = UnitHealthMax(current_cb_target) or 1;
+    local unit_health_pct = unit_health / unit_health_max;
+    -- get the spell stop threshold
+    local class_threshold = get_class_heal_threshold(sname);
+    btp_debug("spell: " .. sname .. " on " .. current_cb_target .. " name: " .. unit_name);
+
+    if (unit_health < 1) then
+        btp_debug(unit_name .. " is dead stop cast");
+        btp_stop_casting();
+        return false;
+    end
+    btp_debug("unit_name: " .. unit_name .. " is alive");
+
+    -- check if they no longer need the heal
+    if (unit_health_pct > class_threshold) then
+        btp_debug(unit_name .. " is above threshold for " .. sname);
+        btp_stop_casting();
+        return false;
+    end
+    btp_debug("unit_name: " .. unit_name .. " is above threshold");
+
+    -- if we are in bot mode check distance to follow player
+    -- if they are running away stop casting.
+    if (btp_bot_should_start_following()) then
+        btp_debug("follow player is running away stop cast");
+        btp_stop_casting();
+        return false;
+    end
+    btp_debug("CONTINUE spell: " .. sname .. " on " .. current_cb_target .. " name: " .. unit_name);
+    return true;
+end
+
+function btp_cb_generic_dps(sname)
+    cast_spell, cast_rank, cast_display_name, cast_icon, cast_start_time,
+    cast_end_time, cast_is_trade_skill = UnitCastingInfo("player");
+
+    -- May just be beteen casts, so let it stand, otherwise we should
+    -- clear the callback if it's not the spell we expect.
+    if (cast_spell == nil) then
+        btp_debug("cast_spell is nil");
+        return false;
+    elseif (cast_spell ~= sname) then
+        -- Well we are not casting our spell, so we can clear the callback.
+        btp_debug("cast_spell " .. cast_spell .. " does not match " .. sname);
+        btp_stop_casting();
+        return false;
+    end
+
+    -- if we are in bot mode check distance to follow player
+    -- if they are running away stop casting.
+    if (btp_bot_should_start_following()) then
+        btp_debug("follow player is running away stop cast");
+        btp_stop_casting();
+        return false;
+    end
+end
+
+-- returns true if follow_unit is in danger of going out of range
+function btp_bot_should_start_following()
+    -- first check to see if we should stop moving
+    local stop_moving = btp_state_get("stop_moving");
+    if (stop_moving) then return false; end
+    if (stopMoving) then return false; end 
+
+    -- not told to stop moving so check if we have a follow unit
+    local follow_unit = btp_state_get("follow_unit");
+    if (not follow_unit) then return false; end
+    -- check if we are getting out of range
+    if (not btp_check_dist(follow_unit, 2) and btp_check_dist(follow_unit, 4)) then
+        return true;
+    end
+    -- still in range so return false
+    return false;
+end
+
+-- used to strip off the rank of a spell
+function btp_get_base_spellname(rankedSpellName)
+    -- local baseSpellName = string.match(rankedSpellName, "^(.-)%s*(%(Rank %d+%)%)?$");
+    local baseSpellName = string.match(rankedSpellName, "^(.-)%s*%(Rank %d+%)?$")
+    return baseSpellName or rankedSpellName
+end
+
 function btp_set_cb(sname, tname)
     if (cb_array[sname] ~= nil) then
-        -- btp_frame_debug("setting callback to " .. sname);
+        btp_debug("setting callback to " .. sname .. " on " .. tname .. " - " .. UnitName(tname));
         current_cb = cb_array[sname];
         current_cb_target = tname;
     end
+    -- if we dont have a match check to see if a ranked spell was passed in
+    -- if so look for a matching non-ranked spell
+    local base_spell = btp_get_base_spellname(sname) or nil;
+    if (base_spell ~= nil and cb_array[base_spell] ~= nil) then
+        btp_debug("setting base callback to " .. base_spell .. " on " .. tname .. " - " .. UnitName(tname));
+        current_cb = cb_array[base_spell];
+        current_cb_target = tname;
+    end
+
+    -- record our previous state, might not need this
+    btp_save_previous_state()
+    -- update our current state
+    btp_state_set("current_cb", cb_array[sname]);
+    btp_state_set("current_cb_spell", base_spell);
+    btp_state_set("current_cb_target", tname);
+    btp_state_set("current_cb_target_name", UnitName(tname));
+    btp_state_set("current_cb_start_time", GetTime());
+end
+
+-- you can use this kind like a sleep to wait for something
+BTP_TIMER_RUNNING = false
+function btp_wait(duration)
+    BTP_TIMER_RUNNING = true
+    C_Timer.After(duration, function()
+        BTP_TIMER_RUNNING = false
+    end)
 end
 
 function btp_cast_spell(sname)
@@ -3310,33 +3541,82 @@ function btp_cast_spell_alt(sname)
     return btp_cast_spell_on_target_alt(sname, "target");
 end
 
+function btp_get_best_ranked_spell(spell_name, unit)
+    local unit_level = UnitLevel(unit)
+    local highest_rank = 0
+    local highest_rank_spell = nil
+    -- if we dont have an entry just use the max ranked spell
+    if (not BTP_SPELL_LEVEL_REQ[spell_name]) then return spell_name; end
+    for rank, level_req in pairs(BTP_SPELL_LEVEL_REQ[spell_name]) do
+        local spellRankName = spell_name .. "(Rank " .. rank .. ")";
+        -- if we dont know the rank then return the highest we have
+        if (not btp_get_spell_id(spellRankName)) then break; end
+        if level_req <= unit_level and rank > highest_rank then
+            highest_rank = rank
+            highest_rank_spell = spell_name .. "(Rank " .. rank .. ")"
+        end
+    end
+    btp_debug(unit .. " highest ranked spell: " .. highest_rank_spell)
+    return highest_rank_spell
+end
+
 function btp_cast_spell_on_target(sname, tname)
-    -- btp_frame_debug("CASTING: " .. sname .. " On: " .. tname);
+    btp_debug("attempting to cast: " .. sname .. " On: " .. tname);
+    if (not UnitIsConnected(tname)) then
+        btp_debug("unit is not connected: " .. tname);
+        return false;
+    end
 
     if (not sname or not tname) then
-        -- btp_frame_debug("NIL: " .. sname .. " or " .. tname);
+        btp_debug("invalid args");
         return false;
     end
 
     if (not btp_spell_known(sname)) then
-        -- btp_frame_debug("UNKNOWN: " .. sname);
+        btp_debug("unknown: " .. sname);
+        return false;
+    end
+
+    if (tname ~= "player" and not btp_in_range(sname, tname)) then
+        btp_debug("OUT OF RANGE: " .. sname .. " On: " .. tname);
         return false;
     end
 
     if (btp_can_cast(sname)) then
-        -- btp_frame_debug("CAN CAST: " .. sname .. " On: " .. tname);
+        btp_debug("we can cast: " .. sname .. " On: " .. tname);
         btp_set_cb(sname, tname);
+
+        -- some healing spells will not work on low level units.
+        -- check if we mapped the spell to a rank
+        -- this has to be inside btp_can_cast since we dont index any ranked spells
+        local ranked_spell = btp_get_best_ranked_spell(sname, tname)
+        if (ranked_spell) then
+            btp_debug("got ranked spell: " .. ranked_spell);
+            sname = ranked_spell;
+            --[[ TODO: check if the spell will WAY overheal.
+            if (btp_config_get(OVERHEAL_LIMIT) and
+                btp_check_overheal(ranked_spell, tname)) then
+                    -- if the spell is an overheal return false
+                    return false;
+            end
+            ]]
+        end
 
         if (tname ~= "target") then
             FuckBlizzardTargetUnit(tname);
         end
 
+        btp_debug("CASTING: " .. sname .. " on: " .. tname);
         FuckBlizzardByName(sname);
         return true;
     else
-    	-- btp_frame_debug("FAILD CASTING: " .. sname .. " On: " .. tname);
+    	btp_debug("can not cast: " .. sname .. " On: " .. tname);
     end
 
+    return false;
+end
+
+function btp_check_overheal(ranked_spell, tname)
     return false;
 end
 
@@ -3366,22 +3646,9 @@ function btp_can_cast(sname)
     if(sname == nil) then
         return false;
     end
-    -- btp_frame_debug("trying to cast: " .. sname);
-
-    -- check if we disabled the spell
-    use_spell = CONFIG_SPELLS[sname];
-    if(use_spell == nil or use_spell == false) then
-            return false;
-    end
+    btp_debug("trying to cast: " .. sname);
 
     if(btp_spell_known(sname)) then
-            -- This appears to be redundant
-            -- usable, nomana = IsUsableSpell(sname);
-            -- if (nomana) then
-            --     -- btp_frame_debug("No mana for: " .. sname);
-            --     return false;
-            -- end
-
             local sid = btp_get_spell_id(sname);
             if(not sid) then                    
                 -- btp_frame_debug(sname .. " has no SID.");
@@ -3408,121 +3675,378 @@ function btp_can_cast(sname)
                 end
             end
     end
-    
     return false;
 end 
 
 function btp_spell_known(sname)
-    if (sname) then
-	    usable, nomana = IsUsableSpell(btp_get_spell_id(sname), BOOKTYPE_SPELL);
-	    if (usable and not nomana) then
-            return true;
-        else
-            -- btp_frame_debug(sname .. " for player is unusable");
-        end
+    local spell_id = btp_get_spell_id(sname);
+    if (not spell_id) then return false; end
 
-        usable, nomana = IsUsableSpell(btp_get_spell_id_pet(sname), BOOKTYPE_PET);
-        if (usable and not nomana) then
-            return true;
-        else
-            -- btp_frame_debug(sname .. " for pet is unusable");
-        end
+    usable, nomana = IsUsableSpell(spell_id, BOOKTYPE_SPELL);
+    if (usable and not nomana) then
+        btp_debug("spell known: " .. sname);
+        return true;
+    else
+        btp_debug(sname .. " for player is unusable");
+    end
+
+    usable, nomana = IsUsableSpell(btp_get_spell_id_pet(sname), BOOKTYPE_PET);
+    if (usable and not nomana) then
+        btp_debug("pet spell known: " .. sname);
+        return true;
+    else
+        btp_debug(sname .. " for pet is unusable");
     end
 
     return false;
 end
 
+function btp_has_ranked_spell(spellRankName)
+    local numTabs = GetNumSpellTabs()
+    for t = 1, numTabs do
+        local _, _, offset, numSpells = GetSpellTabInfo(t)
+        for i = 1, (offset + numSpells) do
+            if GetSpellBookItemName(i, BOOKTYPE_SPELL) == spellRankName then
+                return true
+            end
+        end
+    end
+    return false
+end
+function btp_get_spell_max_rank(spell)
+    local SpellCount = 0
+    local ReturnName
+    local ReturnRank
+    local spellRankName
+    local requestedRank = tonumber(string.match(SpellName, "Rank (%d+)") or "0")
+    local baseSpellName = string.match(SpellName, "(.-)%s*%(Rank %d+%)") or SpellName
+
+    while not ReturnName or not string.find(ReturnName, baseSpellName, 1, true) do
+        SpellCount = SpellCount + 1
+        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, BOOKTYPE_SPELL)
+        local returnedRank = tonumber(string.match(ReturnRank or "", "Rank (%d+)") or "0")
+        if ReturnRank and returnedRank >= requestedRank then
+            spellRankName = ReturnName .. '(' .. ReturnRank .. ')'
+        else
+            spellRankName = ReturnName
+        end
+        if not ReturnName then
+            return false
+        end
+        btp_frame_debug("spell name: " .. spellRankName)
+    end
+
+end
+
+function btp_get_spell_id_new(SpellName)
+    local SpellCount = 0
+    local ReturnName
+    local ReturnRank
+    local spellRankName
+    local requestedRank = tonumber(string.match(SpellName, "Rank (%d+)") or "0")
+    local baseSpellName = string.match(SpellName, "(.-)%s*%(Rank %d+%)") or SpellName
+
+    while not ReturnName or not string.find(ReturnName, baseSpellName, 1, true) do
+        SpellCount = SpellCount + 1
+        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, BOOKTYPE_SPELL)
+        local returnedRank = tonumber(string.match(ReturnRank or "", "Rank (%d+)") or "0")
+        if ReturnRank and returnedRank >= requestedRank then
+            spellRankName = ReturnName .. '(' .. ReturnRank .. ')'
+        else
+            spellRankName = ReturnName
+        end
+        if not ReturnName then
+            return false
+        end
+        btp_frame_debug("spell name: " .. spellRankName)
+    end
+
+    while baseSpellName and ReturnName and string.find(ReturnName, baseSpellName, 1, true) do
+        SpellID = SpellCount
+        SpellCount = SpellCount + 1
+        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, BOOKTYPE_SPELL)
+        local returnedRank = tonumber(string.match(ReturnRank or "", "Rank (%d+)") or "0")
+        if ReturnRank and returnedRank >= requestedRank then
+            spellRankName = ReturnName .. '(' .. ReturnRank .. ')'
+        else
+            spellRankName = ReturnName
+        end
+        if not ReturnName then
+            break
+        end
+        btp_frame_debug("spell_id: " .. SpellID .. " spell name: " .. spellRankName)
+        if not string.find(ReturnName, baseSpellName, 1, true) then
+            break
+        end
+    end
+
+    return SpellID
+end
+
+function btp_get_spell_id_returns_max_rank_id(SpellName)
+    local SpellCount = 0
+    local ReturnName
+    local ReturnRank
+    local spellRankName
+
+    while not ReturnName or not string.find(spellRankName, SpellName, 1, true) do
+        SpellCount = SpellCount + 1
+        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, BOOKTYPE_SPELL)
+        if ReturnRank then
+            spellRankName = ReturnName .. '(' .. ReturnRank .. ')';
+        else
+            spellRankName = ReturnName
+        end
+        if not ReturnName then
+            return false
+        end
+        btp_frame_debug("spell name: " .. spellRankName)
+    end
+
+    while SpellName and ReturnName and string.find(spellRankName, SpellName, 1, true) do
+        SpellID = SpellCount
+        SpellCount = SpellCount + 1
+        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, BOOKTYPE_SPELL)
+        if ReturnRank then
+            spellRankName = ReturnName .. '(' .. ReturnRank .. ')';
+        else
+            spellRankName = ReturnName
+        end
+        if not ReturnName then
+            break
+        end
+        btp_frame_debug("spell_id: " .. SpellID .. " spell name: " .. spellRankName)
+        if not string.find(spellRankName, SpellName, 1, true) then
+            break
+        end
+    end
+
+    return SpellID
+end
+
+BTP_SPELLBOOK = {};
+BTP_SPELLBOOK_PET = {};
+
+function btp_build_valid_spellbook(book_type)
+    local SpellCount = 0
+    local ReturnName
+    local ReturnRank
+    local spellBook = {}
+
+    while true do
+        SpellCount = SpellCount + 1
+        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, book_type)
+        if not ReturnName then
+            break
+        end
+        -- add just the spell name cause if its returned at all we have it
+        spellBook[ReturnName] = SpellCount;
+        local returnedRank = tonumber(string.match(ReturnRank or "", "Rank (%d+)") or "0")
+        for i = 1, returnedRank do
+            local spellRankName = ReturnName .. "(Rank " .. i .. ")"
+            spellBook[spellRankName] = SpellCount;
+        end
+    end
+    return spellBook
+end
+
+-- improve btp_get_spell_id
 function btp_get_spell_id(SpellName)
-    local SpellCount = 0;
-    local ReturnName;
-    local ReturnRank;
-
-    while (SpellName ~= ReturnName) do
-        SpellCount = SpellCount + 1;
-        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, BOOKTYPE_SPELL);
-        if(not ReturnName) then
-            return false;
-        end
+    if (next(BTP_SPELLBOOK) == nil) then
+        btp_frame_debug("spell book is not initialzed, initializing now");
+        BTP_SPELLBOOK = btp_build_valid_spellbook(BOOKTYPE_SPELL);
     end
-
-    while (SpellName and ReturnName and SpellName == ReturnName) do
-        SpellID = SpellCount;
-        SpellCount = SpellCount + 1;
-        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, BOOKTYPE_SPELL);
-        if (SpellName ~= ReturnName) then
-            break;
-        end
-        if(not ReturnName) then
-            break;
-        end
+    if (BTP_SPELLBOOK[SpellName]) then
+        return BTP_SPELLBOOK[SpellName];
     end
-
-    return SpellID;
+    return false;
 end
 
 function btp_get_spell_id_pet(SpellName)
-    local SpellCount = 0;
-    local ReturnName;
-    local ReturnRank;
-
-    while (SpellName ~= ReturnName) do
-        SpellCount = SpellCount + 1;
-        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, BOOKTYPE_PET);
-        if(not ReturnName) then
-            return false;
-        end
+    if (BTP_SPELLBOOK_PET[SpellName]) then
+        return BTP_SPELLBOOK_PET[SpellName];
     end
-
-    while (SpellName and ReturnName and SpellName == ReturnName) do
-        SpellID = SpellCount;
-        SpellCount = SpellCount + 1;
-        ReturnName, ReturnRank = GetSpellBookItemName(SpellCount, BOOKTYPE_PET);
-        if (SpellName ~= ReturnName) then
-            break;
-        end
-        if(not ReturnName) then
-            break;
-        end
-    end
-
-    return SpellID;
+    return false
 end
 
+-- THIS IS BROKEN, not sure what the issue is yet.
+function btp_iterate_targets(lists_and_iterators)
+    btp_frame_debug("btp_iterate_targets IS BUSTED DONT USE");
+    local index = 0
+    local list_or_iterator_index = 1
+    local currentListOrIterator = lists_and_iterators[list_or_iterator_index]
+    local isIterator = type(currentListOrIterator) == "function"
+    if isIterator then
+        currentListOrIterator = currentListOrIterator()
+    end
 
-function btp_health_status_quick()
-    local lowest_health = 0;
-    local lowest_target = 0;
-    local lowest_percent = 1;
-
-    for nextPlayer in btp_iterate_group_members() do
-        cur_health     = UnitHealth(nextPlayer);
-        cur_health_max = UnitHealthMax(nextPlayer);
-        cur_class      = UnitClass(nextPlayer);
-        cur_percent    = cur_health / cur_health_max;
-
-        if(cur_health > 5 and (lowest_percent > cur_percent) and btp_check_dist(nextPlayer, 1)) then
-            lowest_percent = cur_percent;
-            lowest_target = nextPlayer;
-            lowest_health = (cur_health_max - cur_health)
-            if (btp_heal_priority_check(lowest_target)) then
-                return lowest_percent, lowest_health, lowest_target;
+    return function()
+        if not isIterator then
+            index = index + 1
+            if index <= #currentListOrIterator then
+                return currentListOrIterator[index]
             end
-            -- btp_frame_debug("raid-name: " .. UnitName(lowest_target) .. " % " .. lowest_percent);
+        else
+            local nextTarget = currentListOrIterator()
+            if nextTarget then
+                return nextTarget
+            end
+        end
+
+        -- Move to the next list or iterator
+        list_or_iterator_index = list_or_iterator_index + 1
+        if list_or_iterator_index <= #lists_and_iterators then
+            currentListOrIterator = lists_and_iterators[list_or_iterator_index]
+            isIterator = type(currentListOrIterator) == "function"
+            if isIterator then
+                currentListOrIterator = currentListOrIterator()
+            end
+            index = 0
+            return currentListOrIterator()
+        end
+
+        -- No more targets
+        return nil
+    end
+end
+
+--[[
+TODO: this is a work in progress
+function btp_iterate_friendly_targets()
+    local lists_and_iterators = {{"player", "target"}, btp_iterate_group_members, btp_iterate_group_pets}
+    return function()
+        return btp_iterate_targets(lists_and_iterators);
+    end
+end
+]]
+
+-- iterates all potential friendly targets
+function btp_iterate_friendly_targets_new()
+    local initialList = {"target", "player"}
+    local index = 0
+    local groupMembersIterator = btp_iterate_group_members()
+    local groupPetsIterator = btp_iterate_group_pets()
+
+    return function()
+        index = index + 1
+        if index <= #initialList then
+            return initialList[index]
+        else
+            local nextPlayer = groupMembersIterator()
+            if nextPlayer then
+                return nextPlayer
+            else
+                return groupPetsIterator()
+            end
+        end
+    end
+end
+
+function btp_iterate_friendly_targets()
+    local initialList = {"target", "player"}
+    local index = 0
+    local groupMembersIterator = btp_iterate_group_members()
+
+    return function()
+        index = index + 1
+        if index <= #initialList then
+            return initialList[index]
+        else
+            return groupMembersIterator()
+        end
+    end
+end
+
+-- TODO: rewrite to use unitinfo
+function btp_health_status_quick()
+    local lowest_health = 0
+    local lowest_percent = 1
+    local lowest_target = 0
+    local largest_heal_missing = 0
+    local largest_heal_target = nil
+    local largest_heal_missing_percent = 1
+
+    local function _health_status_check(player)
+        if not UnitExists(player) then
+            btp_debug(player .. " does not exist")
+            return
+        end
+
+        if btp_config_get("DISTANCE_CHECK") and not btp_unit_in_casting_range(player) then
+            btp_debug("not in range: " .. UnitName(player))
+            return
+        end
+
+        local cur_class = UnitClass(player)
+        local cur_health = UnitHealth(player)
+        local cur_health_max = UnitHealthMax(player)
+        local cur_health_missing = cur_health_max - cur_health
+        local cur_percent = cur_health / cur_health_max
+
+        -- only return the largetst heal if the player is less than 90% health
+        if ((largest_heal_missing_percent < .90)
+            and (cur_health_missing > 5)
+            and (cur_health_missing > largest_heal_missing)) then
+            largest_heal_missing = cur_health_missing
+            largest_heal_target = player
+            largest_heal_missing_percent = cur_health / cur_health_max
+            btp_debug("NEW largest_heal_missing: " ..  largest_heal_missing
+                .. " largest_heal_missing_percent: " .. largest_heal_missing_percent
+                .. " largest_heal_target: " .. largest_heal_target);
+        end
+
+        if cur_health > 5 and lowest_percent > cur_percent and btp_check_dist(player, 1) then
+            lowest_percent = cur_percent
+            lowest_target = player
+            lowest_health = cur_health_max - cur_health
+
+            btp_debug("NEW lowest_percent: " .. lowest_percent
+                .. " lowest_health: " .. lowest_health
+                .. " lowest_target: " .. lowest_target);
+            if btp_heal_priority_check(lowest_target) then
+                btp_debug("priority target: " .. lowest_target
+                    .. " lowest_percent: " .. lowest_percent
+                    .. " lowest_health: " .. lowest_health);
+                return lowest_percent, lowest_health, lowest_target
+            end
         end
     end
 
-    -- return in priority only mode
-    if(PRIORITY_ONLY) then
+    -- process player and target first
+    for nextPlayer in btp_iterate_friendly_targets() do _health_status_check(nextPlayer); end
+
+    if btp_config_get("PRIORITY_ONLY") then
+        btp_debug("PRIORITY_ONLY is set, skipping group and pet checks")
         return false;
     end
-
-    if(not lowest_percent or lowest_percent == 1) then
-        return false;
+    if btp_config_get("HEAL_PETS") then
+        for nextPet in btp_iterate_group_pets() do
+            _health_status_check(nextPet)
+        end
     end
 
-    return lowest_percent, lowest_health, lowest_target;
+    -- if the health mising is larget than the person with the lowest percent
+    -- chances are its a tank and should take priority since it has a larger health pool
+    if largest_heal_missing > 1 and largest_heal_missing > lowest_health then
+        btp_debug("largest_heal_missing: " .. largest_heal_missing .. " largest_heal_missing_percent: " .. largest_heal_missing_percent .. " largest_heal_target: " .. largest_heal_target)
+        return largest_heal_missing_percent, largest_heal_missing, largest_heal_target
+    end
+
+    -- if lowest_percent is not defined or 1 then we have no one to heal
+    if not lowest_percent or lowest_percent == 1 then return false; end
+
+    btp_debug("lowest_percent: " .. lowest_percent .. " lowest_health: " .. lowest_health .. " lowest_target: " .. lowest_target);
+    return lowest_percent, lowest_health, lowest_target
 end
 
+function btp_unit_is_pet(unit)
+    if not UnitExists(unit) then return false; end
+
+    local classification = UnitClassification(unit)
+    local creatureFamily = UnitCreatureFamily(unit)
+    if classification == "pet" and creatureFamily ~= nil then return true;
+    else return false; end
+end
 
 function btp_dont_follow(name)
     if (name == nil) then
@@ -3770,61 +4294,6 @@ function btp_health_status(thresh, raidHeal)
     return false;
 end
 
-function btp_class_callback(callback)
-    local player_class = UnitClass("player")
-    local class_callbacks = BTP_CLASS_CALLBACKS[player_class]
-
-    if (not class_callbacks) then
-        -- btp_frame_debug("No callbacks for " .. player_class);
-        return false
-    end
-    
-    class_callback_function = class_callbacks[callback];
-    -- btp_frame_debug("RUNNING: " .. player_class .. " " .. callback);
-    return class_callback_function()
-end
-
--- this is the begining of the new bot function
-function btp_bot_new()
-    player_class = UnitClass("player");
-	-- first bind our keys
-	ProphetKeyBindings();
-    --[[
-    local AceSerializer = LibStub:GetLibrary("AceSerializer-3.0");
-    local serialized = AceSerializer:Serialize(BTP_CLASS_CALLBACKS["Priest"]);
-    print (serialized);
-    ]]
-
-    -- check our state
-    btp_bot_init();
-
-    -- check who to follow
-    local follow_unit = btp_pick_follow();
-    if (btp_check_opt("FOLLOW") and follow_unit and btp_should_follow(follow_unit)) then
-        FollowUnit(follow_unit);
-    end
-
-    if (btp_check_opt("HEAL") and btp_class_callback("heal")) then return true; end
-    if (btp_check_opt("BUFF") and btp_class_callback("buff")) then return true; end
-    if (btp_check_opt("DPS") and btp_class_callback("dps")) then return true; end
-end
-
-function btp_should_follow(unit)
-    if unit and btpFollow and not stopMoving then
-        return true;
-    end
-    return false
-end
-
-function btp_pick_follow()
-    for nextPlayer in btp_iterate_group_members() do
-        if (not btp_dont_follow(UnitName(nextPlayer)) and
-            UnitName(nextPlayer) ~= UnitName("player") and
-            btp_check_dist(nextPlayer, 1)) then
-            return nextPlayer;
-        end
-    end
-end
 
 function btp_is_drinking(unitid)
     --
@@ -3975,35 +4444,29 @@ function btp_is_channeling(unitid)
     return false;
 end
 
-
-
 -- This function sets most of the global variables
 -- that are used for state information
+-- unsure the std btp_bot needs this, it might even break
+-- things.
 function btp_bot_init()
+    -- initilize the spellbook
+    if (#BTP_SPELLBOOK == 0) then
+        BTP_SPELLBOOK = btp_build_valid_spellbook(BOOKTYPE_SPELL);
+    end
+    if (#BTP_SPELLBOOK_PET == 0) then
+        BTP_SPELLBOOK_PET = btp_build_valid_spellbook(BOOKTYPE_PET);
+    end
+
+    --refresh the spell books once in a while not in combat
+    if (((math.floor(GetTime()) % 10) ~= 0) and not UnitAffectingCombat("player")) then
+        BTP_SPELLBOOK = btp_build_valid_spellbook(BOOKTYPE_SPELL);
+        BTP_SPELLBOOK_PET = btp_build_valid_spellbook(BOOKTYPE_PET);
+    end
+
     _btp_follow_player = "";
     _btp_assist_player = "";
 end
 
--- check an option in CONFIG_OPTS
-function btp_check_opt(optname)
-    if (CONFIG_OPTS[optname] == nil) then
-        btp_frame_debug("Unknown option: " .. optname);
-        return false;
-    end
-    if (CONFIG_OPTS[optname]["VALUE"] == nil) then
-        btp_frame_debug("No value for option: " .. optname);
-        return false;
-    end 
-    return CONFIG_OPTS[optname]["VALUE"];
-end
-
-function btp_set_opt(optname, value)
-    -- make sure types look right first
-    CONFIG_OPTS[optname]["VALUE"] = value;
-end
-
-function btp_bot_dps(unit)
-end
 
 function btp_report_afk()
     if (GetNumBattlefieldScores() > 0 and
@@ -6037,6 +6500,23 @@ function btp_is_moving(unit)
     return false;
 end
 
+function btp_stop_moving()
+    -- if (stopMoving) then return; end
+    if (not btp_config_get("CASTING_STOP")) then return; end;
+    -- btp_frame_debug("STOPPING");
+    -- btp_do_movement("TURNLEFT");
+    FuckBlizzardMove("TURNLEFT");
+    btp_state_set("stop_moving", true);
+    stopMoving = true;
+    return stopMoving;
+end
+
+function btp_start_moving()
+    btp_state_set("stop_moving", false);
+    stopMoving = false;
+    return stopMoving;
+end
+
 function btp_do_dungeon_stuff()
     --
     -- Clock how long we've been in the instance.
@@ -6258,13 +6738,7 @@ function btp_iterate_group_pets(reversed, forceParty)
   end
 end
 
-function _print_nearby_players()
-    for nextPlayer in btp_iterate_nearby_players() do
-        print("PLAYER: " .. UnitName(nextPlayer) .. " - " .. nextPlayer);
-    end
-end
-
-function btp_iterate_nearby_players()
+function btp_iterate_nearby_nameplates()
     local i = 1
     return function()
         local nextPlayer = "nameplate"..i
@@ -6277,7 +6751,12 @@ function btp_iterate_nearby_players()
 end
 
 function btp_unit_has_threat(unit)
-    if (UnitThreatSituation(unit) > 0) then
+    if (not UnitExists(unit)) then btp_debug(unit .. "does not exits"); return false; end
+
+    local unit_threat = UnitThreatSituation(unit)
+    if (unit_threat == nil) then btp_debug(unit .. " has no threat"); return false; end
+    if (unit_threat > 0) then
+        btp_debug(unit .. "has threat");
         return true;
     end
     return false;
@@ -6286,8 +6765,237 @@ end
 function btp_is_soft_target(unit)
     -- warriors need rage, hunter can feign, paladins, should have armor
     local soft_target_classes = {"Priest", "Mage", "Warlock", "Druid", "Shaman", "Rouge"};
-    if table.includes(classes, UnitClass(unit)) then
+    for index, v in ipairs(soft_target_classes) do
+        if (v == UnitClass(unit)) then
+            btp_debug(unit .. " is a soft target");
+            return true
+        end
+    end
+    btp_debug(unit .. " is not a soft target");
+    return false;
+end
+
+--[[
+
+
+BETA CODE DOWN HERE
+
+
+]]
+
+
+
+-- used to check if the unit is in range of our caster
+function btp_unit_in_casting_range(unit)
+    if (not UnitIsConnected(unit)) then return false; end
+    return btp_class_callback("range", unit);
+end
+
+-- used to check if we have a valid unit id
+-- NOTE: unit can not be a player name
+
+function btp_is_unitid(unit)
+    if (unit == nil) then
+        btp_frame_debug("btp_is_unitid - passed a nil unit");
+        return false;
+    end
+    if (unit == "player" or unit == "playertarget" or unit == "target" or strmatch(unit, "party%d+") or strmatch(unit, "raid%d+")) then
+        return true;
+    end
+    btp_frame_debug("btp_is_unitid - passed a non-valid unit: " .. unit);
+    return false;
+end
+
+function btp_is_party_unit(unit)
+    if (unit == nil) then
+        btp_debug("btp_is_party_unitid - passed a nil unit");
+        return false;
+    end
+    if (unit == "player" or strmatch(unit, "party%d+") or strmatch(unit, "raid%d+")) then
+        btp_debug("btp_is_party_unitid - YES: " .. unit);
+        return true;
+    end
+    btp_debug("btp_is_party_unit - NO: " .. unit);
+    return false;
+end
+
+
+
+-- Ordered list of all player classes
+BTP_BASIC_PRIORITIES = {
+    "Warrior",
+    "Paladin",
+    "Priest",
+    "Druid",
+    "Shaman",
+    "Mage",
+    "Death Knight",
+    "Demon Hunter",
+    "Warlock",
+    "Monk",
+    "Hunter",
+    "Rogue"
+}
+
+function btp_unit_is_player(unit)
+    local unitinfo = btp_unitinfo_get(unit);
+    if (unitinfo.name == BTP_PLAYER_INFO.name) then return true; end
+    return false
+end
+
+function btp_set_priority_order()
+    for nextPlayer in btp_iterate_group_members() do
+        local unitinfo = btp_unitinfo_get(nextPlayer);
+    end
+    for nextPet in btp_iterate_group_pets() do
+        local unitinfo = btp_unitinfo_get(nextPet);
+    end
+
+    -- Loop over BTP_PLAYER_INFO and add the player info to the ordered list
+    for unit, info in pairs(BTP_PLAYER_INFO) do
+        table.insert(BTP_UNITINFO_PRIORITY_ORDER, info)
+    end
+
+    -- Sort the list based on the priority value
+    table.sort(BTP_UNITINFO_PRIORITY_ORDER, function(a, b)
+        return a.priority < b.priority
+    end)
+
+end
+
+function btp_class_callback(callback, unit)
+    local player_class = UnitClass("player")
+    local class_callbacks = BTP_CLASS_CALLBACKS[player_class]
+
+    if (not class_callbacks) then
+        btp_frame_debug("No callbacks for " .. player_class);
+        return false
+    end
+    
+    class_callback_function = class_callbacks[callback];
+    -- btp_frame_debug("RUNNING: " .. player_class .. " " .. callback);
+    return class_callback_function(unit)
+end
+
+-- this can be used to cycle targets
+function btp_target_friend()
+    btp_debug("btp_target_friend - called");
+    FuckBlizzardByName("targetfriend");
+    return true;
+end
+
+-- if we are in a party always have a friendly target
+function btp_target_party_member()
+    btp_debug("finding_party_member - called");
+    if (btp_config_get("ROAMING")) then
+        return btp_target_friend();
+    end
+    FuckBlizzardTargetUnit("party1");
+    return true;
+end
+
+
+function btp_bind_keys()
+    local time_last_key_bind = btp_state_get("time_last_key_bind") or 0;
+    local time_last_unitinfo_update = btp_state_get("time_last_unitinfo_update") or 0;
+
+    local durration_last_key_bind = GetTime() - time_last_key_bind;
+    local durration_last_unitinfo_update = GetTime() - time_last_unitinfo_update;
+
+    if (durration_last_key_bind > 5) then
+        btp_state_set("time_last_key_bind", GetTime());
+        -- spellbook update also happens here since it creates a new keybind
+        ProphetKeyBindings();
+    end
+
+    if (durration_last_unitinfo_update > 5) then
+        btp_state_set("time_last_unitinfo_update", GetTime());
+        btp_unitinfo_update();
+    end
+
+    return false;
+end
+
+-- not all units are in party
+function btp_unit_in_party(unit)
+    if (UnitExists(unit) == nil) then return false; end
+    -- if unit is "target" we need to get the name to check against party members
+    local unitinfo = btp_unitinfo_get_by_name(unit);
+    if(unitinfo == nil) then return false; end
+    return unitinfo.party_unit;
+end
+
+function btp_unitname_in_party(unit_name)
+    local unitinfo = btp_unitinfo_get_by_name(unit_name);
+    if(unitinfo == nil) then return false; end
+end
+
+function btp_get_party_size()
+    local party_size = 0
+    for nextPlayer in btp_iterate_group_members() do
+        party_size = party_size + 1;
+    end
+    return party_size;
+end
+
+function btp_in_party()
+    local party_size = btp_get_party_size();
+    if (party_size > 1) then return true; end
+    return false;
+end
+
+function btp_do_movement(movement)
+    if (btp_state_get("stop_moving")) then return false; end
+    if (stopMoving) then return false; end
+    btp_debug("executing movement: " .. movement);
+    FuckBlizzardMove(movement);
+end
+
+function btp_unit_in_combat(unit)
+    if (UnitAffectingCombat(unit)) then
         return true;
     end
     return false;
 end
+
+function btp_is_player(unit)
+    if (UnitName(unit) == UnitName("player")) then return true; end
+    return false;
+end
+
+BTP_STATE = {}
+
+function btp_state_set (state, value)
+    --[[
+    if (value == nil or state == nil) then 
+        -- btp_frame_debug("btp_state_set: nil value");
+        btp_debug("btp_state_set: nil value");
+        return false;
+    end
+    ]]
+    btp_debug("btp_state_set: " .. state .. " = " .. tostring(value));
+    BTP_STATE[state] = value;
+    return true;
+end
+
+function btp_state_get(state)
+    if (BTP_STATE[state] == nil) then 
+        -- btp_frame_debug("btp_state_get nil state");
+        return false;
+    end
+    return BTP_STATE[state];
+end
+
+function btp_dps_mode_toggle()
+    if(DPS_MODE_ON == nil or DPS_MODE_ON == false) then
+        btp_config_set("DPS", true);
+        DPS_MODE_ON = true;
+        btp_frame_debug("DPS_MODE = ON");
+    else
+        btp_config_set("DPS", false);
+        DPS_MODE_ON = false;
+        btp_frame_debug("DPS_MODE = OFF");
+    end
+end
+
+

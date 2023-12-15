@@ -23,6 +23,7 @@ fr_width_g = 75;
 fr_height_g = 20;
 
 function btp_frame_debug(msg)
+	btp_debug("btp_frame_debug: " .. msg);
 	DEFAULT_CHAT_FRAME:AddMessage(msg);
 	UIErrorsFrame:AddMessage(msg, 1.0,1.0, 0, 1, 10);
 end

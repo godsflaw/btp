@@ -16,7 +16,11 @@
 ## You should have received a copy of the GNU General Public License
 ## along with BTP.  If not, see <http://www.gnu.org/licenses/>.
 ## 
+btp_debug.xml
+btp_config.xml
 btp_general.xml
+btp_unitinfo.xml
+btp_helper.xml
 btp_chatter.xml
 btp_frame.xml
 btp_druid.xml

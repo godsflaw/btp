@@ -725,3 +725,188 @@ function btp_priest_heal_std()
     return false;
 end
 
+function btp_priest_dps(unit)
+    if(not unit) then  unit = "target"; end
+
+    -- if our target is low on health then cast shadow word death
+    if(unit and (UnitHealth(unit) < 2000) and (UnitHealth("player") > 1000)) then
+        if(btp_cast_spell_on_target("Shadow Word: Death", unit)) then 
+            return true; 
+        end
+    end
+
+    -- check if we should cast shadowFiend
+        if(UnitPower("player")/UnitPowerMax("player") < .5) then
+        if(btp_cast_spell_on_target("Shadowfiend", unit)) then return true; end
+    end
+
+    has_swp, my_swp, num_swp = btp_check_debuff("ShadowWordPain", unit);
+    if(not my_swp and (UnitHealth(unit) > 2000)) then
+        if(btp_cast_spell_on_target("Shadow Word: Pain", unit)) then 
+            return true 
+        end;
+    end
+    if(btp_cast_spell_on_target("Devouring Plague", unit)) then return true end
+    -- if(btp_cast_spell_on_target("Mind Blast", unit)) then return true end;
+    -- if(btp_cast_spell_on_target("Smite", unit)) then return true end;
+    return false;
+end
+
+function btp_priest_dps_new(unit)
+    ProphetKeyBindings();
+
+    if(not unit or unit == nil or unit == "") then  unit = "target"; end
+
+    -- check our health
+    local in_combat = UnitAffectingCombat("player");
+    local cur_health = UnitHealth("player");
+    local cur_health_max = UnitHealthMax("player");
+    local cur_class = UnitClass("player");
+    local my_health = (cur_health/cur_health_max)*100;
+
+    local unit_health = (UnitHealth(unit)/UnitHealthMax(unit))*100;
+
+    -- free action if need be
+    if (btp_free_action()) then
+        return true;
+    end
+
+--[[
+
+    -- remove any curse from ourselves
+    if ((((GetTime() - lastDecurse) >= 8) or blockOnDecurse) and
+        BTP_Decursive()) then                                   
+         lastDecurse = GetTime();
+         return true;            
+     end
+]]
+
+    -- check if our target is casting a spell
+    local spell_cast, _, _, _, _, endTime = UnitCastingInfo("target")
+    if(spell_cast ~= nil) then
+        if(btp_cast_spell_on_target("Silence", unit)) then return true; end
+        if(btp_cast_spell_on_target("Psychic Horror", unit)) then return true; end
+    end
+    
+    -- remove any buffs we dont want our target to have
+    if (btp_priest_dispell_buffs(unit)) then return true; end
+
+    -- if we have a fast mindblast use it AKA 3 mindspikes making Mind Blast instant
+    if (btp_priest_is_my_mindspike(unit)) then
+        if(btp_cast_spell_on_target("Mind Blast", unit)) then return true end;
+    end
+
+    -- if our target is low on health then cast shadow word death
+    if (unit_health < 25 and my_health > 2) then
+        if(btp_cast_spell_on_target("Shadow Word: Death", unit)) then return true; end
+        if (not btp_priest_is_my_dp(unit)) then
+    	    if(btp_cast_spell_on_target("Devouring Plague", unit)) then return true end
+        end
+        -- if they are close to death try and finish the job
+        if (unit_health < 8) then
+    	    if(btp_cast_spell_on_target("Devouring Plague", unit)) then return true end
+        end
+    end
+    
+    -- go into shadowform if not in it
+    if(not btp_priest_is_shadowform()) then
+        if(btp_cast_spell("Shadowform")) then return true; end
+    end
+    
+    -- use pain suppression first
+    if(my_health < 65) then
+        if(btp_cast_spell("Pain Suppression")) then return true; end
+    end
+
+    -- keep our buffs up if not in combat
+    if(not in_combat) then
+        if(not btp_priest_is_fortitude("player")) then
+            if(btp_cast_spell_on_target("Power Word: Fortitude", "player")) then return true; end
+        end
+
+        if(not btp_priest_is_divinespirit("player")) then
+            if(btp_cast_spell("Divine Spirit")) then return true; end
+        end
+
+        if(not btp_priest_is_innerwill() and not btp_priest_is_innerfire()) then
+            if(btp_cast_spell("Inner Fire")) then return true; end
+        end
+
+        if(not btp_priest_is_shadowprotection()) then
+            if(btp_cast_spell("Shadow Protection")) then return true; end
+        end
+
+        if(not btp_priest_is_touchofweakness()) then
+            if(btp_cast_spell("Touch of Weakness")) then return true; end
+        end
+
+        if(not btp_priest_is_my_vampiricembrace()) then
+            if(btp_cast_spell_on_target("Vampiric Embrace", unit)) then 
+                return true 
+            end;
+        end
+
+        if(not btp_priest_is_innerfire() and not btp_priest_is_innerwill()) then
+            if(btp_cast_spell_on_target("Inner Will", unit)) then 
+                return true 
+            end;
+        end
+    end
+    
+    -- Always shield ourself
+    if (not btp_priest_is_pws())  then
+        if(btp_cast_spell("Power Word: Shield")) then return true; end
+    end
+	  -- btp_frame_debug("hummm");
+
+
+    -- check if our health is low if so heal ourself
+    if(my_health < 90) then
+        if(btp_priest_is_sol()) then 
+            if(btp_cast_spell("Flash Heal")) then return true; end;
+        end
+    end
+
+    -- critical heals require instant relief
+    if(my_health < 15 and not btp_priest_is_shadowform()) then
+        if(btp_cast_spell("Desperate Prayer")) then return true; end
+        if(btp_cast_spell("Prayer of Mending")) then return true; end
+        if(btp_cast_spell("Circle of Healing")) then return true; end
+        if(btp_cast_spell("Flash Heal")) then return true; end
+    end
+
+    if (my_health < 5) then
+        if(btp_cast_spell("Psychic Screamr")) then return true; end
+        if(btp_cast_spell_on_target("Dispersion", "player")) then return true; end
+        if(not btp_priest_is_shadowform() and btp_cast_spell("Flash Heal")) then return true; end
+    end
+
+    -- put up renew if we get low on health
+    if(my_health < 90) then
+        if(not btp_priest_is_shadowform() and not btp_priest_is_renew()) then
+            if(btp_cast_spell("Renew")) then return true; end
+        end
+    end
+
+    if(my_health < 60) then
+        if(not btp_priest_is_shadowform()) then
+            if(btp_cast_spell("Flash Heal")) then return true; end
+        end
+    end
+
+    -- check if we should cast shadowFiend bring it out for pvp right away
+    if(in_combat and 
+      ((UnitIsPlayer(unit) and UnitPower("player")/UnitPowerMax("player") < .92) or
+       (UnitPower("player")/UnitPowerMax("player") < .30))) then
+        if(btp_cast_spell_on_target("Shadowfiend", unit)) then return true; end
+    end
+
+    -- always keep fearward up since it cost next to no mana
+    if(not btp_priest_is_fearward()) then
+        if(btp_cast_spell_on_target("Fear Ward", unit)) then return true; end
+    end
+
+    if(btp_cast_spell_on_target("Power Infusion", unit)) then return true end;
+
+    return false;
+end

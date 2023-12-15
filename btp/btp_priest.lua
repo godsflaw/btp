@@ -16,23 +16,88 @@
 -- You should have received a copy of the GNU General Public License
 -- along with BTP.  If not, see <http://www.gnu.org/licenses/>.
 -- 
+local BTP_PRIEST_THRESH_CRIT=.35
+local BTP_PRIEST_THRESH_LARGE=.49
+local BTP_PRIEST_THRESH_MEDIUM=.84
+local BTP_PRIEST_THRESH_SMALL=.93
+local BTP_PRIEST_THRESH_MANA=.15
 
-function btp_dbg(msg)
-    DEFAULT_CHAT_FRAME:AddMessage(msg);
-    UIErrorsFrame:AddMessage(msg, 1.0,1.0, 0, 1, 10);
+local SPELL_DATA = {
+    -- Format: ["Spell Name"] = {{trainable level, mana, min heal, max heal, time}, ...}
+    ["Lesser Heal"] = {
+        {1, 30, 46, 58, 1.5},   -- Rank 1
+        {4, 45, 71, 89, 2.0},   -- Rank 2
+        {10, 75, 135, 165, 2.5},-- Rank 3
+    },
+    ["Heal"] = {
+        {16, 155, 295, 341, 3.0}, -- Rank 1
+        {22, 205, 429, 499, 3.0}, -- Rank 2
+        {28, 255, 566, 658, 3.0}, -- Rank 3
+        {34, 305, 712, 826, 3.0}, -- Rank 4
+    },
+    ["Renew"] = {
+        {8, 30, 45, 45, 999},    -- Rank 1
+        {14, 65, 100, 100, 999},  -- Rank 2
+        {20, 105, 175, 175, 999}, -- Rank 3
+        {26, 140, 245, 245, 999}, -- Rank 4
+        {32, 170, 315, 315, 999}, -- Rank 5
+        {38, 205, 400, 400, 999}, -- Rank 6
+        {44, 250, 510, 510, 999}, -- Rank 7
+    },
+    ["Flash Heal"] = {
+        {20, 125, 202, 247, 1.5}, -- Rank 1
+        {26, 155, 269, 325, 1.5}, -- Rank 2
+        {32, 185, 339, 406, 1.5}, -- Rank 3
+        {38, 215, 414, 499, 1.5}, -- Rank 4
+        {44, 265, 534, 643, 1.5}, -- Rank 5
+        {50, 315, 662, 791, 1.5}, -- Rank 6
+        {56, 380, 828, 996, 1.5}, -- Rank 7
+        {60, 410, 958, 1120, 1.5},-- Rank 8
+    },
+    ["Greater Heal"] = {
+        {40, 370, 924, 1039, 3.0}, -- Rank 1
+        {46, 455, 1178, 1318, 3.0},-- Rank 2
+        {52, 545, 1470, 1642, 3.0},-- Rank 3
+        {58, 655, 1813, 2021, 3.0},-- Rank 4
+        {60, 750, 2234, 2499, 3.0},-- Rank 5
+    },
+    ["Prayer of Healing"] = {
+        {30, 410, 312, 363, 3.0}, -- Rank 1
+        {40, 560, 458, 507, 3.0}, -- Rank 2
+        {50, 770, 675, 730, 3.0}, -- Rank 3
+        {60, 1030, 939, 1002, 3.0},-- Rank 4
+    },
+    -- Continue to add data for other spells in a similar format
+}
+
+function btp_compare_buff(spell_name, unit)
+    return true;
 end
 
-function btp_get_my_name()
-    return UnitName("player");
+function btp_check_buff_rank(unit, spellName)
+    for i = 1, 40 do
+        local name, _, _, _, _, _, _, _, _, spellId = UnitBuff(unit, i)
+        if name == spellName then
+            local rank = GetSpellSubtext(spellId)
+            return rank
+        end
+    end
+    return nil
 end
+
+local SPELL_LOGIC = {
+    ["Renew"] = function(unit)
+        return true;
+    end
+};
 
 -- Moved a lot of stuff to btp_priest_old.lua
 function btp_priest_initialize()
     btp_frame_debug("Priest INIT");
 
-    SlashCmdList["PRIESTB"] = PriestBuff;
+    SlashCmdList["PRIESTB"] = function() PriestBuff("target"); end
     SLASH_PRIESTB1 = "/pb";
-    SlashCmdList["PRIESTH"] = btp_priest_heal;
+    SlashCmdList["PRIESTH"] = function() btp_priest_heal("target"); end
     SLASH_PRIESTH1 = "/ph";
     SlashCmdList["PRIESTDPS"] = btp_priest_dps;
     SLASH_PRIESTDPS1 = "/pdps";
@@ -40,313 +105,131 @@ function btp_priest_initialize()
     SLASH_PRIESTDPS2 = "/pdps_pve";
     SlashCmdList["PRIESTDPSPVP"] = btp_priest_dps_pvp;
     SLASH_PRIESTDPSPVP1 = "/pdps_pvp";
-    SlashCmdList["DPSMODE"] = btp_dps_mode_toggle;
-    SLASH_DPSMODE1 = "/dps";
 
-    cb_array["Flash Heal"]              = function() 
-        return btp_cb_priest_flash_heal("Flash Heal");
+    cb_array["Flash Heal"] = function() return btp_cb_generic_heal("Flash Heal"); end
+    cb_array["Greater Heal"] = function() return btp_cb_generic_heal("Greater Heal"); end
+    cb_array["Lesser Heal"] = function()
+        btp_debug("Lesser Heal - cb_array");
+        return btp_cb_generic_heal("Lesser Heal");
     end
-    cb_array["Greater Heal"]            = function()
-        return btp_cb_priest_greater_heal("Greater Heal");
-    end
-    cb_array["Lesser Heal"]            = function()
-        return btp_cb_priest_greater_heal("Lesser Heal");
-    end
-    cb_array["Heal"]            = function()
-        return btp_cb_priest_greater_heal("Heal");
-    end
-    cb_array["Binding Heal"]            = function()
-        return btp_cb_priest_binding_heal("Binding Heal");
-    end
+    cb_array["Heal"] = function() return btp_cb_generic_heal("Heal"); end
+    cb_array["Binding Heal"] = function() return btp_cb_generic_heal("Binding Heal"); end
+    cb_array["Smite"] = function() return btp_cb_generic_dps("Smite"); end
+
     -- cb_array["Prayer of Healing"]       = btp_cb_priest_prayer_of_healing("Prayer of Healing");
     -- cb_array["Holy Word: Sanctuary"]    = btp_cb_priest_holy_word_sanctuary("Holy Word: Sanctuary");
     -- cb_array["Hymn of Hope"]            = btp_cb_priest_hymn_of_hope("Hymn of Hope");
 
-    btp_set_opt("HEAL", true);
-    btp_set_opt("BUFF", true);
-    btp_set_opt("DPS", false);
-    btp_set_opt("FOLLOW", true);
+    btp_config_set("HEAL", true);
+    btp_config_set("BUFF", true);
+    btp_config_set("DPS", false);
+    btp_config_set("FOLLOW", true);
+    btp_config_set("ACCEPT", true); -- auto accept trades/invites/res
 
     -- setup our class callbacks
     BTP_CLASS_CALLBACKS["Priest"] = {
-        heal = btp_priest_heal,
-        buff = PriestBuff,
-        dps = btp_priest_dps
+        heal = function(unit) return btp_priest_heal(unit) end,
+        buff = function(unit) return PriestBuff(unit) end,
+        dps = function(unit) return btp_helper_priest_dps(unit) end,
+        -- might not be required now that we have IsSpellInRange
+        range = function(unit) return btp_in_range("Lesser Heal", unit) end
+        -- currently we fade/scream in heal functions i think
+        -- this logic should be run before healing and not inline
+        -- threat = function return btp_priest_threat(unit) end
     };
 
+
 end
 
-function btp_dps_mode_toggle()
-    if(DPS_MODE_ON == nil or DPS_MODE_ON == false) then
-        DPS_MODE_ON = true;
-        btp_frame_debug("DPS_MODE = ON");
-    else
-        DPS_MODE_ON = false;
-        btp_frame_debug("DPS_MODE = OFF");
-    end
-end
-
-function PriestBuff()
-    ProphetKeyBindings();
+function PriestBuff(unit)
+    btp_bind_keys();
     -- only run when not in combat
     if UnitAffectingCombat("player") then return false; end
 
     -- only buff if we have extra mana
     if (UnitPower("player")/UnitPowerMax("player") < .65) then return false; end
 
-    -- check self
-    if (btp_priest_buff("player")) then return true; end
-
     -- check target
     if (btp_priest_buff("target")) then return true; end
+
+    -- check self
+    if (btp_priest_buff("player")) then return true; end
 
     -- check group
     for nextPlayer in btp_iterate_group_members() do
         if (btp_priest_buff(nextPlayer)) then return true; end
     end
 
-    -- buff nearby friendly players
-    --[[ I think this will work if we add nameplate# to keybindings
-    if (UnitPower("player")/UnitPowerMax("player") < .80) then return false; end
-    for nextPlayer in btp_iterate_nearby_players() do
-        if (UnitIsPlayer(nextPlayer)) then
-            print("CHECKING: " .. UnitName(nextPlayer) .. " - " .. nextPlayer)
-            TargetUnit(UnitName(nextPlayer));
-            btp_priest_buff("target")
-        end
+    if (unit ~= nil) then
+        btp_debug("PriestBuff: " .. unit);
     end
-    ]]
 
+    -- checkd the party first so buff targets if presented
+    if (btp_priest_buff(unit)) then return true; end
     return false;
 end
 
 function btp_priest_buff(unit)
-    if (not unit) then 
-        btp_frame_debug("btp_priest_buff - called without unit");
+    if (not unit or unit == nil) then 
+        btp_debug("called without unit");
         return false;
     end
 
-    -- if the unit is "target" but no target is selected then return
-    if (unit == "target" and not UnitExists("target")) then
+    if (not UnitExists(unit)) then
         return false;
     end
 
-    if (UnitIsUnit(unit, "player")) then return _btp_priest_buff(unit); end
+    local unit_name = UnitName(unit) or "NONE";
+    btp_debug(unit_name .. " buffing");
 
-    -- can only buff players
-    if (not UnitIsPlayer(unit) or
-        not UnitIsFriend("player", unit)) then
+    if(not btp_in_range("Power Word: Fortitude", unit)) then return false; end;
+    btp_debug(UnitName(unit) .. " in range");
+
+    -- can only buff players (TODO: this excludes pets)
+    if (not UnitIsFriend("player", unit)) then
         return false;
     end
+    btp_debug(UnitName(unit) .. " unit is friend");
 
-    -- can only buff if we are in distance
-    if (not btp_check_dist(unit, 1)) then return false; end
-
-    -- do the buff once everything checks out
-    _btp_priest_buff(unit);
-end
-
-function _btp_priest_buff(unit)
-    if (not unit) then 
-        btp_frame_debug("_btp_priest_buff - called without unit");
+    -- only buff players or pets
+    if (not UnitPlayerControlled(unit)) then
         return false;
     end
+    btp_debug(UnitName(unit) .. " unit is player or pet");
 
+    btp_debug("checking fort")
     if(not btp_priest_is_fortitude (unit)) then
+        btp_debug("casting fort");
         return btp_cast_spell_on_target("Power Word: Fortitude", unit);
     end
+    btp_debug("done fort");
 
     -- These spells can only be cast on player
-    if (unit ~= "player" and unit ~= "playertarget") then return false; end
+    if (unit ~= "player") then return false; end
     if(not btp_priest_is_innerwill("player") and not btp_priest_is_innerfire("player")) then
-        return btp_cast_spell("Inner Fire");
+        if (btp_cast_spell_on_target("Inner Fire", "player")) then return true; end
     end
 
     if(not btp_priest_is_touchofweakness ("player")) then
-        return btp_cast_spell("Touch of Weakness");
+        if(btp_cast_spell_on_target("Touch of Weakness", "player")) then return true; end
     end
-
+    return false;
 end
 
-BTP_PRIEST_THRESH_CRIT=.35
-BTP_PRIEST_THRESH_LARGE=.65
-BTP_PRIEST_THRESH_MEDIUM=.89
-BTP_PRIEST_THRESH_SMALL=.96
-BTP_PRIEST_THRESH_MANA=.15
 
 function btp_priest_dps_pve(unit)
-    if(not unit or unit == nil or unit == "") then  unit = "target"; end
-    -- if (btp_priest_dps_new(unit)) then return true; end
+    if(not unit or unit == nil or unit == "") then  return false; end
     if (_btp_priest_dps_pve(unit)) then return true; end
     return false;
 end
 
 function btp_priest_dps_pvp(unit)
-    if(not unit or unit == nil or unit == "") then  unit = "target"; end
-    if (btp_priest_dps_new(unit)) then return true; end
+    if(not unit or unit == nil or unit == "") then  return false; end
     if (_btp_priest_dps_pvp(unit)) then return true; end
     return false;
 end
 
-function btp_priest_dps_new(unit)
-    ProphetKeyBindings();
-
-    if(not unit or unit == nil or unit == "") then  unit = "target"; end
-
-    -- check our health
-    local in_combat = UnitAffectingCombat("player");
-    local cur_health = UnitHealth("player");
-    local cur_health_max = UnitHealthMax("player");
-    local cur_class = UnitClass("player");
-    local my_health = (cur_health/cur_health_max)*100;
-
-    local unit_health = (UnitHealth(unit)/UnitHealthMax(unit))*100;
-
-    -- free action if need be
-    if (btp_free_action()) then
-        return true;
-    end
-
---[[
-
-    -- remove any curse from ourselves
-    if ((((GetTime() - lastDecurse) >= 8) or blockOnDecurse) and
-        BTP_Decursive()) then                                   
-         lastDecurse = GetTime();
-         return true;            
-     end
-]]
-
-    -- check if our target is casting a spell
-    local spell_cast, _, _, _, _, endTime = UnitCastingInfo("target")
-    if(spell_cast ~= nil) then
-        if(btp_cast_spell_on_target("Silence", unit)) then return true; end
-        if(btp_cast_spell_on_target("Psychic Horror", unit)) then return true; end
-    end
-    
-    -- remove any buffs we dont want our target to have
-    if (btp_priest_dispell_buffs(unit)) then return true; end
-
-    -- if we have a fast mindblast use it AKA 3 mindspikes making Mind Blast instant
-    if (btp_priest_is_my_mindspike(unit)) then
-        if(btp_cast_spell_on_target("Mind Blast", unit)) then return true end;
-    end
-
-    -- if our target is low on health then cast shadow word death
-    if (unit_health < 25 and my_health > 2) then
-        if(btp_cast_spell_on_target("Shadow Word: Death", unit)) then return true; end
-        if (not btp_priest_is_my_dp(unit)) then
-    	    if(btp_cast_spell_on_target("Devouring Plague", unit)) then return true end
-        end
-        -- if they are close to death try and finish the job
-        if (unit_health < 8) then
-    	    if(btp_cast_spell_on_target("Devouring Plague", unit)) then return true end
-        end
-    end
-    
-    -- go into shadowform if not in it
-    if(not btp_priest_is_shadowform()) then
-        if(btp_cast_spell("Shadowform")) then return true; end
-    end
-    
-    -- use pain suppression first
-    if(my_health < 65) then
-        if(btp_cast_spell("Pain Suppression")) then return true; end
-    end
-
-    -- keep our buffs up if not in combat
-    if(not in_combat) then
-        if(not btp_priest_is_fortitude("player")) then
-            if(btp_cast_spell_on_target("Power Word: Fortitude", "player")) then return true; end
-        end
-
-        if(not btp_priest_is_divinespirit("player")) then
-            if(btp_cast_spell("Divine Spirit")) then return true; end
-        end
-
-        if(not btp_priest_is_innerwill() and not btp_priest_is_innerfire()) then
-            if(btp_cast_spell("Inner Fire")) then return true; end
-        end
-
-        if(not btp_priest_is_shadowprotection()) then
-            if(btp_cast_spell("Shadow Protection")) then return true; end
-        end
-
-        if(not btp_priest_is_touchofweakness()) then
-            if(btp_cast_spell("Touch of Weakness")) then return true; end
-        end
-
-        if(not btp_priest_is_my_vampiricembrace()) then
-            if(btp_cast_spell_on_target("Vampiric Embrace", unit)) then 
-                return true 
-            end;
-        end
-
-        if(not btp_priest_is_innerfire() and not btp_priest_is_innerwill()) then
-            if(btp_cast_spell_on_target("Inner Will", unit)) then 
-                return true 
-            end;
-        end
-    end
-    
-    -- Always shield ourself
-    if (not btp_priest_is_pws())  then
-        if(btp_cast_spell("Power Word: Shield")) then return true; end
-    end
-	  -- btp_frame_debug("hummm");
-
-
-    -- check if our health is low if so heal ourself
-    if(my_health < 90) then
-        if(btp_priest_is_sol()) then 
-            if(btp_cast_spell("Flash Heal")) then return true; end;
-        end
-    end
-
-    -- critical heals require instant relief
-    if(my_health < 15 and not btp_priest_is_shadowform()) then
-        if(btp_cast_spell("Desperate Prayer")) then return true; end
-        if(btp_cast_spell("Prayer of Mending")) then return true; end
-        if(btp_cast_spell("Circle of Healing")) then return true; end
-        if(btp_cast_spell("Flash Heal")) then return true; end
-    end
-
-    if (my_health < 5) then
-        if(btp_cast_spell("Psychic Screamr")) then return true; end
-        if(btp_cast_spell_on_target("Dispersion", "player")) then return true; end
-        if(not btp_priest_is_shadowform() and btp_cast_spell("Flash Heal")) then return true; end
-    end
-
-    -- put up renew if we get low on health
-    if(my_health < 90) then
-        if(not btp_priest_is_shadowform() and not btp_priest_is_renew()) then
-            if(btp_cast_spell("Renew")) then return true; end
-        end
-    end
-
-    if(my_health < 60) then
-        if(not btp_priest_is_shadowform()) then
-            if(btp_cast_spell("Flash Heal")) then return true; end
-        end
-    end
-
-    -- check if we should cast shadowFiend bring it out for pvp right away
-    if(in_combat and 
-      ((UnitIsPlayer(unit) and UnitPower("player")/UnitPowerMax("player") < .92) or
-       (UnitPower("player")/UnitPowerMax("player") < .30))) then
-        if(btp_cast_spell_on_target("Shadowfiend", unit)) then return true; end
-    end
-
-    -- always keep fearward up since it cost next to no mana
-    if(not btp_priest_is_fearward()) then
-        if(btp_cast_spell_on_target("Fear Ward", unit)) then return true; end
-    end
-
-    if(btp_cast_spell_on_target("Power Infusion", unit)) then return true end;
-
-    return false;
-end
-
+-- old was called by helper in follow mode
 function _btp_priest_dps_pvp(unit)
     -- if we are moving then put up some dot to trip orbs
     if (btp_is_moving()) then
@@ -390,7 +273,7 @@ function btp_priest_dispell_buffs(unit)
         buffStealable = UnitBuff(unit, i);
 
 	if (buffTexture and buffTime and (
-	    strfind(buffTexture, "Power Word Shield") or
+	    strfind(buffTexture, "Power Word: Shield") or
 	    strfind(buffTexture, "Anti Shadow") or
 	    strfind(buffTexture, "Prayer of Shadow Protection") or
 	    strfind(buffTexture, "Ice Lament") or
@@ -415,9 +298,8 @@ function _btp_priest_dps_pve(unit)
         end
     end
 
-
     -- keep up dp
-    if (not btp_priest_is_my_dp()) then
+    if (not btp_priest_is_my_dp(unit)) then
     	if(btp_cast_spell_on_target("Devouring Plague", unit)) then return true end
     end
 
@@ -437,8 +319,9 @@ function _btp_priest_dps_pve(unit)
             if(btp_cast_spell_on_target("Holy Fire", unit)) then return true end;
             if(btp_cast_spell_on_target("Smite", unit)) then return true end;
         else
-            if(btp_cast_spell_on_target("Mind Blast", unit)) then return true end;
-            if(btp_cast_spell_on_target("Mind Flay", unit)) then return true end;
+            if(btp_cast_spell_on_target("Mind Blast", unit)) then btp_stop_moving(); return true end;
+            if(btp_cast_spell_on_target("Mind Flay", unit)) then btp_stop_moving(); return true end;
+            if(btp_cast_spell_on_target("Smite", unit)) then btp_stop_moving(); return true end;
         end
     end
     --
@@ -446,53 +329,137 @@ function _btp_priest_dps_pve(unit)
         -- if(UnitPower(unit) > 110) then
     --     if(btp_cast_spell_on_target("Mana Burn", unit)) then return true end;
     -- end
+    FuckBlizzardAttackTarget(unit);
 
     return false;
 end
 
 
+-- handles targeting when in dps helper mode, this can probably be
+-- a general function for all classes that calls a callback for class
+-- specific dps
+function btp_helper_priest_dps(unit)
+    btp_debug("in dps helper")
+    -- we only ever dsp our follow targets target
+    local follow_name = btp_state_get("follow_name") or "NONE";
+    -- local follow_unitinfo = btp_unitinfo_get(follow_name);
 
-function btp_priest_dps(unit)
-    if(not unit) then  unit = "target"; end
-
-    -- if our target is low on health then cast shadow word death
-    if(unit and (UnitHealth(unit) < 2000) and (UnitHealth("player") > 1000)) then
-        if(btp_cast_spell_on_target("Shadow Word: Death", unit)) then 
-            return true; 
-        end
+    -- we dont have a friendly player targeted
+    if (not UnitExists("target")) then 
+        btp_debug("priest_dps - target does not exist lets target a party member")
+        return false;
     end
 
-    -- check if we should cast shadowFiend
-        if(UnitPower("player")/UnitPowerMax("player") < .5) then
-        if(btp_cast_spell_on_target("Shadowfiend", unit)) then return true; end
+    if (not btp_helper_should_follow("target")) then
+        btp_debug("priest_dps - the target is not a party member or friendly");
+        return false;
     end
 
-    has_swp, my_swp, num_swp = btp_check_debuff("ShadowWordPain", unit);
-    if(not my_swp and (UnitHealth(unit) > 2000)) then
-        if(btp_cast_spell_on_target("Shadow Word: Pain", unit)) then 
-            return true 
-        end;
+    local current_target_name = UnitName("target");
+    -- only dps if our current target is the one we are following
+    btp_debug("priest_dps - follow_name: " .. follow_name);
+    btp_debug("priest_dps - current_target_name: " .. current_target_name);
+
+    -- a little hacky but this should only dps the follow players target
+    -- it would be easy enough to make this any player name
+    if (follow_name ~= nil and follow_name ~= current_target_name) then
+        btp_debug("priest_dps - target is not follow_name: " .. follow_name);
+        return false;
     end
-    if(btp_cast_spell_on_target("Devouring Plague", unit)) then return true end
-    -- if(btp_cast_spell_on_target("Mind Blast", unit)) then return true end;
-    -- if(btp_cast_spell_on_target("Smite", unit)) then return true end;
-    return false;
+    btp_debug("priest_dps - got target");
+
+    -- if we are not in combat then dont dps
+    if (not UnitAffectingCombat("target")) then return false; end
+    btp_debug("priest_dps - target in combat");
+    -- if (not UnitAffectingCombat("player")) then return false; end
+
+    --[[ not sure we have an easy way to target enemy around usable
+    if (UnitAffectingCombat("player")) then
+        -- something is targeting us and attacking so we should fight back maybe?
+    end
+    ]]
+
+    -- if the targettarget is not a npc then dont dps
+    if (UnitIsPlayer("targettarget")) then return false; end
+    btp_debug("priest_dps - unit is not a player");
+
+
+    --[[ this would make the helper fail for some reason
+    -- if the targettarget is not an enemy then dont dps
+    if (UnitIsEnemy("player", "targettarget")) then return false; end
+    btp_debug("unit is an enemy");
+    ]]
+
+    -- if the targettarget is not in combat then dont dps
+    if (not UnitAffectingCombat("targettarget")) then return false; end
+    btp_debug("priest_dps - unit is in combat");
+
+    -- if the targettarget is not damaged then dont dps
+    if (UnitHealth("targettarget") == UnitHealthMax("targettarget")) then return false; end
+    btp_debug("priest_dps - unit is loosing health");
+
+    -- if we are not in range then dont dps
+    -- if (not btp_unit_in_casting_range("targettarget")) then return false; end
+    btp_debug("priest_dps - seems to be in range");
+
+    -- if we are low on mana then switch to wand
+    local mana_low = btp_config_get("MANA_LOW");
+    if (UnitPower("player")/UnitPowerMax("player") < .85) then 
+        btp_debug("priest_dps - low mana")
+        --[[ this did not seem to work
+            if(IsAutoRepeatSpell("Shoot")) then return false; end
+        ]]
+        return btp_cast_spell_on_target("Shoot", "targettarget");
+    end
+    btp_debug("priest_dps - enough mana");
+
+    return btp_priest_dps_pve("targettarget");
 end
+
 
 PR_THRESH = .45
 PR_SCALAR = .50;
 PR_MANA = .30;
 
-function btp_priest_heal()
+function btp_priest_heal(unit)
     -- Put any callback code here.
     -- btp_frame_debug("CALLING: Priest Heal");
 
     -- doing a self heal here (healthstones, potions, etc)
-    if (SelfHeal(PR_THRESH, PR_MANA/3)) then
-        return true;
+    if (SelfHeal(PR_THRESH, PR_MANA/3)) then return true; end
+
+
+    
+    -- if we are passed in a unit and have a target
+    if (unit ~= nil and unit ~= "target") then
+        if (btp_priest_heal_unit(unit)) then
+            return true;
+        end
     end
 
-    return btp_priest_heal_pvp_quick();
+    -- this code calls health_stats stuff and picks a target
+    return btp_priest_heal_scan();
+end
+
+function btp_priest_heal_unit(unit)
+    -- never heal a friendly unit
+    if (unit and UnitIsPlayer(unit) and 
+        UnitIsEnemy("player", unit)) then
+            return false;
+    end
+
+    local cur_percent = UnitHealth(unit) / UnitHealthMax(unit);
+    local cur_health = UnitHealth(unit);
+    
+    -- always heal ourself first
+    if (btp_priest_heal_self()) then return true; end
+
+    btp_frame_debug("btp_priest_heal_unit: " .. unit .. " " .. cur_percent .. " " .. cur_health);
+    if(btp_priest_heal_crit(cur_percent, cur_health, unit)) then return true; end;
+    if(btp_priest_heal_large(cur_percent, cur_health, unit)) then return true; end;
+    if(btp_priest_heal_medium(cur_percent, cur_health, unit)) then return true; end;
+    if(btp_priest_heal_small(cur_percent, cur_health, unit)) then return true; end;
+    return false;
 end
 
 function btp_priest_resurrection()
@@ -516,43 +483,18 @@ function btp_priest_resurrection()
     return false;
 end
 
--- function btp_health_status()
---     local lowest_health = 0;
---     local lowest_target = 0;
---     local lowest_percent = 1;
--- 
---     for nextPlayer in btp_iterate_group_members() do
---         cur_health     = UnitHealth(nextPlayer);
---         cur_health_max = UnitHealthMax(nextPlayer);
---         cur_class      = UnitClass(nextPlayer);
---         cur_percent    = cur_health / cur_health_max;
---         if(cur_health > 5 and (lowest_percent > cur_percent) and btp_check_dist(nextPlayer, 1)) then
---             lowest_percent = cur_percent;
---             lowest_target = nextPlayer;
---             lowest_health = (cur_health_max - cur_health)
---         end
--- 
---     end
---     return lowest_percent, lowest_health, lowest_target;
--- end
-
--- i am hoping to speed up the heal function bye doing this.
-function btp_priest_heal_pvp_quick()
-BTP_PRIEST_THRESH_CRIT=.29
-BTP_PRIEST_THRESH_LARGE=.49
-BTP_PRIEST_THRESH_MEDIUM=.84
-BTP_PRIEST_THRESH_SMALL=.94
-BTP_PRIEST_THRESH_MANA=.15
-
+function btp_priest_heal_scan()
     -- init
-    ProphetKeyBindings();
+    btp_bind_keys();
 
 
+    --[[
     if (current_cb ~= nil and current_cb()) then
         return true;
     end
     -- only place we stop moving is in a callback so start back up
     btp_start_moving();
+    ]]
 
 
     -- Check the player
@@ -589,6 +531,12 @@ BTP_PRIEST_THRESH_MANA=.15
     -- local lowest_target = btp_health_status(.99);
     local lowest_percent, lowest_health, lowest_target = btp_health_status_quick();
 
+    if (btp_unit_is_pet(cur_target)) then
+        btp_debug("priest_heal_scan - target is pet");
+        if(btp_priest_heal_small(lowest_percent, lowest_health, lowest_target)) then return true; end;
+        return false;
+    end
+
     -- if there is no longer anyone to heal, start moving again
     if(not lowest_percent or not lowest_health or not lowest_target 
        or lowest_target == false or lowest_target == nil) then
@@ -604,15 +552,12 @@ BTP_PRIEST_THRESH_MANA=.15
     -- heal our self second
     if(btp_priest_heal_self()) then return true; end
 
-
     -- small heals after we heal ourself
     if(btp_priest_heal_small(lowest_percent, lowest_health, lowest_target)) then return true; end;
 
 --[[
-
     if(BTP_Decursive()) then return true; end
 ]]
-
     return false;
 end
 
@@ -620,6 +565,7 @@ end
 function btp_priest_heal_crit(cur_percent, cur_health, cur_player)
     -- bang out any critical heals
     if(cur_percent > BTP_PRIEST_THRESH_CRIT) then return false; end
+    btp_debug("need crit heal " .. cur_player .. " " ..  UnitName(cur_player));
     -- btp_frame_debug("NEED CRIT " .. cur_player .. " " ..  UnitName(cur_player));
 
     if(btp_priest_is_sol()) then 
@@ -627,9 +573,10 @@ function btp_priest_heal_crit(cur_percent, cur_health, cur_player)
     end
 
     if(UnitAffectingCombat(cur_player)) then
+        btp_debug("need crit in combat" .. cur_player .. " " ..  UnitName(cur_player));
         if(btp_cast_spell_on_target("Guardian Spirit", cur_player)) then return true; end
 
-        if(not btp_priest_is_pws(cur_player)) then
+        if(not btp_priest_is_pws(cur_player) and btp_unit_in_party(cur_player)) then
             if(btp_cast_spell_on_target("Power Word: Shield", cur_player)) then return true; end
         end
 
@@ -641,11 +588,13 @@ function btp_priest_heal_crit(cur_percent, cur_health, cur_player)
 
         if(btp_priest_bestheal(cur_player)) then return true; end
     else
+        btp_debug("need crit not in combat" .. cur_player .. " " ..  UnitName(cur_player));
         if(not btp_priest_is_renew(cur_player)) then
             if(btp_cast_spell_on_target("Renew", cur_player)) then return true; end
         end
         if(btp_priest_bestheal(cur_player)) then return true; end
     end
+    btp_debug("need crit heal but have not spell to cast " .. cur_player .. " " ..  UnitName(cur_player));
     return false;
 end
 
@@ -653,6 +602,7 @@ end
 function btp_priest_heal_large(cur_percent, cur_health, cur_player)
     -- check everyone else for a large heal
     if(cur_percent > BTP_PRIEST_THRESH_LARGE) then return false; end
+    btp_debug("need large heal " .. cur_player .. " " ..  UnitName(cur_player));
 
     -- btp_frame_debug("NEED LARGE " .. cur_player .. " " ..  UnitName(cur_player));
 
@@ -661,39 +611,44 @@ function btp_priest_heal_large(cur_percent, cur_health, cur_player)
     end
 
     if(UnitAffectingCombat(cur_player)) then
+        btp_debug("need large heal in combat " .. cur_player .. " " ..  UnitName(cur_player));
         if(not btp_priest_is_pom(cur_player)) then
             if(btp_cast_spell_on_target("Prayer of Mending", cur_player)) then return true; end
         end
 
-        if(not btp_priest_is_pws(cur_player)) then
+        if(not btp_priest_is_pws(cur_player) and btp_unit_in_party(cur_player)) then
             if(btp_cast_spell_on_target("Power Word: Shield", cur_player)) then return true; end
         end
 
         if(btp_cast_spell_on_target("Circle of Healing", cur_player)) then return true; end
         if(btp_priest_bestheal(cur_player)) then return true; end
     else
+        btp_debug("need large heal not in combat " .. cur_player .. " " ..  UnitName(cur_player));
         if(btp_is_moving()) then
             if(not btp_priest_is_renew(cur_player)) then
                 if(btp_cast_spell_on_target("Renew", cur_player)) then return true; end
             end
-            if(btp_priest_bestheal(cur_player)) then return true; end
         else
             if(btp_priest_bestheal(cur_player)) then return true; end
         end
     end
+    btp_debug("need large heal but have not spell to cast " .. cur_player .. " " ..  UnitName(cur_player));
     return false;
 end
 
 function btp_priest_heal_medium(cur_percent, cur_health, cur_player)
     -- Check for medium heals
     if(cur_percent > BTP_PRIEST_THRESH_MEDIUM) then return false; end
+    btp_debug("need medium heal " .. cur_player .. " " ..  UnitName(cur_player));
 
     -- btp_frame_debug("NEED MEDIUM " .. cur_player .. " " .. UnitName(cur_player));
 
-    if(btp_priest_is_sol()) then 
+    if(btp_priest_is_sol()) then
         if(btp_cast_spell_on_target("Flash Heal", cur_player)) then return true; end;
     end
+
     if(UnitAffectingCombat(cur_player)) then
+        btp_debug("need medium heal in combat " .. cur_player .. " " ..  UnitName(cur_player));
 
         if(not btp_priest_is_pom(cur_player)) then
             if(btp_cast_spell_on_target("Prayer of Mending", cur_player)) then return true; end
@@ -704,20 +659,23 @@ function btp_priest_heal_medium(cur_percent, cur_health, cur_player)
         end
 
         -- only cast for medium damage if the unit is in combat and has high threat
-        if(not btp_priest_is_pws(cur_player) and 
-               btp_unit_has_threat(cur_player) and 
-               btp_is_soft_target(cur_player)) then
+        if((not btp_priest_is_pws(cur_player)) and
+               btp_unit_has_threat(cur_player) and
+               btp_is_soft_target(cur_player) and
+               btp_unit_in_party(cur_player)) then
             if(btp_cast_spell_on_target("Power Word: Shield", cur_player)) then return true; end
         end
 
         if(btp_cast_spell_on_target("Circle of Healing", cur_player)) then return true; end
-        if(btp_cast_spell_on_target("Lesser Heal", cur_player)) then return true; end
+        -- might want to check for mana efficent/fastest heal here
+        if(btp_cast_spell_on_target("Lesser Heal", cur_player)) then btp_stop_moving(); return true; end
     else
         if(not btp_priest_is_renew(cur_player)) then
             if(btp_cast_spell_on_target("Renew", cur_player)) then return true; end
         end
         if(btp_cast_spell_on_target("Lesser Heal", cur_player)) then return true; end
     end
+    btp_debug("need medium heal but have not spell to cast " .. cur_player .. " " ..  UnitName(cur_player));
 
     return false;
 end
@@ -725,6 +683,7 @@ end
 function btp_priest_heal_small(cur_percent, cur_health, cur_player)
     -- Check for small heals last
     if(cur_percent > BTP_PRIEST_THRESH_SMALL) then return false; end
+    btp_debug("need small heal " .. cur_player .. " " ..  UnitName(cur_player));
     -- btp_frame_debug("NEED SMALL " .. cur_player .. " " .. UnitName(cur_player));
     if(btp_cast_spell_on_target("Chakra", "player")) then return true; end
 
@@ -779,9 +738,9 @@ function btp_priest_bestheal(unit)
     if(my_percent <= BTP_PRIEST_THRESH_MEDIUM and my_health > 2) then
         if(unit ~= nil and (UnitName(unit) ~= UnitName("player"))) then
             -- btp_frame_debug("unit: " .. unit .. " name: " .. UnitName(unit));
-            if(btp_cast_spell_on_target("Binding Heal", unit)) then  
-                btp_stop_moving(); 
-                return true; 
+            if(btp_cast_spell_on_target("Binding Heal", unit)) then
+                btp_stop_moving();
+                return true;
             end;
         end
     end
@@ -800,26 +759,10 @@ function btp_priest_bestheal(unit)
     return false;
 end
 
-function btp_stop_moving()
-    if (stopMoving) then return; end
-    -- btp_frame_debug("STOPPING");
-    stopMoving = true;
-    FuckBlizzardMove("TURNLEFT");
-    return stopMoving;
-end
-
-function btp_start_moving()
-    if (stopMoving) then 
-        -- btp_frame_debug("STARTING");
-        stopMoving = false;
-    end
-    return stopMoving;
-end
-
 function btp_priest_is_pws(unit)
     if(not unit) then  unit = "player"; end
     if(btp_check_debuff("Ashes To Ashes", unit)) then return true; end
-    if(btp_check_buff("Power Word Shield", unit)) then return true; end
+    if(btp_check_buff("Power Word: Shield", unit)) then return true; end
     return false;
 end
 
@@ -881,9 +824,10 @@ function btp_priest_is_fearward(unit)
 end
 
 function btp_priest_is_fortitude(unit)
-    if(not unit) then  unit = "player"; end
+    if(not unit) then  return false; end
+    if(UnitCreatureFamily(unit) == "Imp") then return true; end
     if(btp_check_buff("Power Word: Fortitude", unit)) then return true; end
-    if(btp_check_buff("Prayer Of Fortitude", unit)) then return true; end
+    if(btp_check_buff("Prayer of Fortitude", unit)) then return true; end
     return false;
 end
 
@@ -901,7 +845,7 @@ end
 
 function btp_priest_is_innerwill(unit)
     if(not unit) then  unit = "player"; end
-    if(btp_check_buff("innewill", unit)) then return true; end
+    if(btp_check_buff("Inner WIll", unit)) then return true; end
     return false;
 end
 
@@ -953,231 +897,17 @@ function btp_priest_is_my_dp(unit)
     return my_swp;
 end
 
--- CALLBACK FUNCTIONS
-function btp_cb_generic_cast_callback(spell_name)
+function btp_priest_cast_heal(spell, unit)
+    if(not unit) then  btp_frame_debug("btp_priest_cast_spell called without unit"); return false; end
+    if(not spell) then btp_frame_debug("btp_priest_cast_heal - called without a spell"); return false; end
 
-    --
-    -- First we get the Casting and channel information about the player
-    -- and use this to make sure the player is casting something.
-    --
-    cast_spell, cast_rank, cast_display_name, cast_icon, cast_start_time,
-    cast_end_time, cast_is_trade_skill = UnitCastingInfo("player");
-
-    --
-    -- May just be beteen casts, so let it stand, otherwise we should
-    -- clear the callback if it's not the spell we expect.
-    --
-    if (cast_spell == nil) then
-        -- btp_frame_debug("got nil spellcast");
-        return false;
-    elseif (cast_spell ~= spell_name) then
-    
-        --
-        -- Well we are not casting our spell, so we can clear the callback.
-        --
-        -- btp_frame_debug("RESET calling different spell: " .. cast_spell .. " NOT: " .. spell_name);
-        current_cb = nil;
-        return false;
-    end
-
-    return true;
-
-end
-
-function btp_cb_priest_flash_heal(spell_name)
-    -- check the generic stuff
-    if (btp_is_moving()) then 
-        -- stopMoving = true
-    end
-
-    if (not btp_cb_generic_cast_callback(spell_name)) then return false; end
-
-    if (UnitHealth(current_cb_target) >= (UnitHealthMax(current_cb_target) - 10)) then
-        FuckBlizzardByNameStrange("stopcasting");
-        current_cb = nil;
-        return false;
-    end
-
+    if(not btp_cast_spell_on_target(spell, unit)) then return false; end
     return true;
 end
-
-function btp_cb_priest_greater_heal(spell_name)
-    -- check the generic stuff
-    return btp_cb_priest_flash_heal(spell_name);
-end
-
-function btp_cb_priest_binding_heal(spell_name)
-    -- check the generic stuff
-    if (not btp_cb_generic_cast_callback(spell_name)) then return false; end
-
-    if (UnitHealth(current_cb_target) >= (UnitHealthMax(current_cb_target) - 10) and
-        UnitHealth("player") >= (UnitHelathMax("player") - 10)) then
-        FuckBlizzardByNameStrange("stopcasting");
-        current_cb = nil;
-        return false;
-    end
-
+function btp_priest_cast_spell(spell, unit)
+    if(not unit) then  unit = "target"; end
+    if(not spell) then return false; end
+    if(not btp_in_range(spell, unit)) then return false; end
+    if(not btp_cast_spell_on_target(spell, unit)) then return false; end
     return true;
 end
-
-
---[[
-    EXPERIMENTAL CODE HERE
--- TODO: fix this, it tosses an error because the function doesn't exist yet
--- BTP_PLAYER_INFO = btp_get_unit_info("player");
-=======
-
-function btp_is_unit(unit)
-    local unit_regex_pattern = "(party%d|player|playertarget|target|raid%d)";
-    if (unit:match(unit_regex_pattern)) then
-        return true;
-    end
-    return false;
-end
-
-BTP_PLAYER_INFO_USE_CACHE = true;
-BTP_PLAYER_INFO = btp_get_unit_info("player");
--- Create an empty table to store the ordered player info
-BTP_PLAYER_INFO_PRIORITY_ORDER = {}
-
-BTP_UNIT_INFO = {}
--- Function to get unit info
-function btp_get_unit_info(unit)
-    
-    -- only run if the unit exists
-    if (not UnitExists(unit)) then return false; end
-
-    -- make sure we are passed a unit not a name
-    if (not btp_is_unit(unit)) then
-        btp_frame_debug("btp_get_unit_info - passed a non-valid unit: " .. unit)
-        return false;
-    end
-
-    if (BTP_PLAYER_INFO_USE_CACHE and
-        BTP_PLAYER_INFO[unit]) then
-        local record_age = data.GetTime - BTP_PLAYER_INFO[unit].update;
-        -- never use data older than 1 second
-        if (record_age < 1) then
-            return BTP_PLAYER_INFO[unit];
-        end
-    end
-
-    -- check if the unit already exits
-    -- Add the unit info to the BTP_UNITS dictionary
-    local unit_health = UnitHealth(unit);
-    local unit_health_max = UnitHealthMax(unit);
-    local unit_percent = unit_health/unit_health_max;
-    local unit_class = UnitClass(unit);
-    local unit_priority = 100;
-    local unit_type = function() 
-        if (UnitIsPlayer(unit)) then return "player"; end
-        if (UnitIsBattlePet(unit)) then return "pet"; end
-        return "unknown";
-    end;
-
-
-    -- always prioritize ourself
-    if (unit == "player") then unit_priority = 100; end
-    if (pcount) then
-        -- Loop over priority and subtract the priority index from unit_priority
-        for index, priority in ipairs(PRIORITY_G) do
-            unit_priority = unit_priority - index
-        end
-    end
-    for index, class in ipairs(BTP_BASIC_PRIORITIES) do
-        if class == unit_class then
-            unit_priority = unit_priority - index
-            break
-        end
-    end
-
-    -- always set pet to lowest priority, should only ever get HOTs
-    if (unit_type == "pet") then unit_priority = 1; end
-
-    BTP_UNIT_INFO[unit] = {
-        updated = date.GetTime(),
-        name = UnitName(unit),
-        level = UnitLevel(unit),
-        class = unit_class,
-        health = UnitHealth(unit),
-        heahth_max = UnitHealthMax(unit),
-        in_combat = UnitAffectingCombat(unit),
-        in_range = UnitInRange(unit),
-        priority = btp_check_heal_priority(unit),
-        percent = unit_percent,
-        threat = UnitThreatSituation(unit),
-        type = unit_type,
-    }
-
-    return BTP_UNIT_INFO[unit];
-end
-
--- Ordered list of all player classes
-BTP_BASIC_PRIORITIES = {
-    "Warrior",
-    "Paladin",
-    "Priest",
-    "Druid",
-    "Shaman",
-    "Mage",
-    "Death Knight",
-    "Demon Hunter",
-    "Warlock",
-    "Monk",
-    "Hunter",
-    "Rogue"
-}
-
-function btp_unit_is_player(unit)
-    local unit_info = btp_get_unit_info(unit);
-    if (unit_info.name = BTP_PLAYER_INFO.name) then return true; end
-    return false
-end
-
-function btp_set_priority_order()
-    for nextPlayer in btp_iterate_group_members() do
-        local unit_info = btp_get_unit_info(nextPlayer);
-    end
-    for nextPet in btp_iterate_group_pets() do
-        local unit_info = btp_get_unit_info(nextPet);
-    end
-
-    -- Loop over BTP_PLAYER_INFO and add the player info to the ordered list
-    for unit, info in pairs(BTP_PLAYER_INFO) do
-        table.insert(BTP_PLAYER_INFO_PRIORITY_ORDER, info)
-    end
-
-    -- Sort the list based on the priority value
-    table.sort(BTP_PLAYER_INFO_PRIORITY_ORDER, function(a, b)
-        return a.priority < b.priority
-    end)
-
-end
-
-function btp_check_heal_priority(unit)
-    local unit_info = btp_get_unit_info(unit);
-
-    local priority = 0;
-    -- we are always the highest priority
-    if (btp_unit_is_player(unit_info)) then return 1; end
-    -- now check if we set a priority list
-    for i = 1, pcount do
-        if (unit == priority[i]) then
-            return i;
-        end
-    end
-    if (pcount) then priority = pcount + 1; end
-
-    -- take a stab at priority if we dont have defined list
-    local unitClass = UnitClass(unit)
-    for i, class in ipairs(BTP_BASIC_PRIORITIES) do
-        if class == unitClass then
-            priority = i
-            break
-        end
-    end
-
-    return priority
-end
-
-]]
