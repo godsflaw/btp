@@ -1,6 +1,9 @@
 
+MY_HELPERS = {};
 function btp_helper_load()
     print ("helper loaded");
+    SlashCmdList["ADDHELPER"] = function() btp_helper_add("target"); end
+    SLASH_ADDHELPER1 = "/addhelper"
 end
 
 -- that are used for state information
@@ -23,6 +26,74 @@ function btp_helper_init()
     _btp_assist_player = "";
 end
 
+-- TODO: use MY_HELPERS so we can run more than one helper at a time
+function btp_helper_add(unit)
+    local unit_name = UnitName(unit);
+    if (unit_name == nil) then
+        btp_frame_debug("Could not find unit name for " .. unit);
+        return false;
+    end
+    btp_state_set("helper_name", unit_name);
+    -- MY_HELPERS[unit_name] = unit_name;
+end
+
+-- can add stuff like casting a spell to this in the future
+function btp_helper_perform(task, unit)
+    btp_debug("performing - " .. task .. " - " .. unit);
+    --[[
+    if (task == "follow") then
+        btp_helper_handle_follow(unit);
+    elseif (task == "buff") then
+        btp_helper_handle_buff(unit);
+    elseif (task == "heal") then
+        btp_helper_handle_heal(unit);
+    elseif (task == "dps") then
+        btp_helper_handle_dps(unit);
+    elseif (task == "threat") then
+        btp_helper_handle_threat(unit);
+    elseif (task == "emergency") then
+        btp_helper_handle_emergency(unit);
+    end
+    ]]
+end
+
+-- This is intended for us to signal to the helper that an emergency is
+-- happening and to invite its follow_player and any other nearby players
+-- to join the party. It can also be used to signal to the helper to cast
+-- specific spells.
+function btp_helper_emergency(command, unit)
+    -- send the command to all the registered helpers
+end
+
+-- if we have a follow target send them updates for things like 50% mana
+-- and when we recive emergency signals from others
+function btp_helper_give_update()
+end
+
+function btp_helper_handle_emergency()
+    -- do invite of follow player
+    local follow_player = btp_config_get("FOLLOW_NAME");
+    local state_follow_player = btp_state_get("follow_name");
+
+    -- re-initilize the helper cb and any other states that
+    -- could have caused them to stop following
+    current_cb = nil;
+
+    -- make sure the bot will run with you
+    btp_config_set(CASTING_STOP, false);
+    -- check if the player is already in the party
+    if (btp_is_in_party(follow_player)) then
+        btp_debug(follow_player .. " is already in the party");
+    else
+       btp_invite_by_name(follow_player);
+    end
+
+    btp_class_callback("emergency");
+
+
+    -- foreach unit invite also check if they are in the party and invite
+    -- set no casting_stop to false so we can run with the party
+end
 
 function btp_helper_go()
     btp_bind_keys();

@@ -285,6 +285,61 @@ function btp_priest_dispell_buffs(unit)
     return false;
 end
 
+-- this is intended to use to dsp when you have a helper on you to keep you and the helper safe
+function btp_priest_grind(unit)
+
+    -- always heal ourself first with manapots, healthstones, etc
+    if (SelfHeal(PR_THRESH, PR_MANA/3)) then return true; end
+
+    local my_health = UnitHealth("player");
+    local my_percent = UnitHealth("player") / UnitHealthMax("player");
+    local my_threat = UnitThreatSituation("player");
+
+    local my_helper = btp_helper_get("helper_name");
+    -- this is made to run with a helper so warn the user if they dont have one set
+    if (not my_helper) then btp_frame_debug("no helper deinfed, target and run /addhelper"); end
+
+    if (btp_unit_in_combat("player")) then
+        if(not btp_priest_is_pws("player")) then
+            if(btp_cast_spell_on_target("Power Word: Shield", "player")) then return true; end
+        end
+        -- crit heal ourself
+        if (btp_priest_heal_crit(my_percent, my_health, "player")) then return true; end
+        btp_helper_emergency("gtfo");
+        -- try to fear people off of us
+        if((my_percent <= BTP_PRIEST_THRESH_CRIT) and 
+           (my_health > 2) and 
+           my_threat ~= nil and
+           my_threat > 0) then
+                if(btp_cast_spell("Fade")) then return true; end
+                -- if we are in grind mode we should have a helper on us
+                if(btp_cast_spell("Psychic Scream")) then return true; end
+        end
+    end
+
+    -- check if our target does not yet have SWP on 
+    if (not btp_priest_is_my_swp(unit)) then
+        if(btp_cast_spell_on_target("Shadow Word: Pain", unit)) then return true end;
+    end
+
+    -- keep up dp
+    if (not btp_priest_is_my_dp(unit)) then
+    	if(btp_cast_spell_on_target("Devouring Plague", unit)) then return true end
+    end
+
+    if(btp_cast_spell_on_target("Mind Blast", unit)) then return true end;
+
+    -- always cast mind blast if we can to keep threat up.
+    if(btp_cast_spell_on_target("MindBlast", unit)) then return true end;
+    -- conserve mana
+    if (UnitPower("player")/UnitPowerMax("player") <= .30) then
+        -- dont restart if we are already shooting
+        if(IsAutoRepeatAction("Shoot")) then return false; end
+        if(btp_cast_spell_on_target("Shoot", unit)) then return true end;
+    end
+    if(btp_cast_spell_on_target("Smite", unit)) then return true end;
+end
+
 function _btp_priest_dps_pve(unit)
 
     -- cast vamperic touch first if we are not moving
@@ -406,9 +461,7 @@ function btp_helper_priest_dps(unit)
     local mana_low = btp_config_get("MANA_LOW");
     if (UnitPower("player")/UnitPowerMax("player") < .85) then 
         btp_debug("priest_dps - low mana")
-        --[[ this did not seem to work
-            if(IsAutoRepeatSpell("Shoot")) then return false; end
-        ]]
+            if(IsAutoRepeatAction("Shoot")) then return false; end
         return btp_cast_spell_on_target("Shoot", "targettarget");
     end
     btp_debug("priest_dps - enough mana");

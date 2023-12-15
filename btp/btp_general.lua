@@ -4294,7 +4294,6 @@ function btp_health_status(thresh, raidHeal)
     return false;
 end
 
-
 function btp_is_drinking(unitid)
     --
     -- Drinking Buff Check
@@ -6873,6 +6872,10 @@ function btp_class_callback(callback, unit)
     end
     
     class_callback_function = class_callbacks[callback];
+    if (class_callback_function == nil) then
+        btp_frame_debug("No callback for " .. player_class .. " " .. callback);
+        return false
+    end
     -- btp_frame_debug("RUNNING: " .. player_class .. " " .. callback);
     return class_callback_function(unit)
 end
