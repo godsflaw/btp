@@ -18,7 +18,7 @@ clearKey       := "{home}"
 ;
 ; The following only matters if you are running the bot
 ;
-btpBotKey    := "9"
+btpBotKey    := "{end}"
 
 ; You may also want to find the point that is as far to the lower left as
 ; you can; however, this is not normaly important.  You can just use your
@@ -350,6 +350,8 @@ if (debug) {
     FileAppend ( "target: " target "`n" ), "D:\debug.txt"
 }
 
+SetKeyDelay 20
+
 ;
 ; frame detection loop
 ;
@@ -511,6 +513,8 @@ Loop
         finit_cnt += 1
     }
 }
+
+SetKeyDelay 0
 
 ;
 ; run loop

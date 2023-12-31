@@ -43,27 +43,12 @@ function warrior_heal()
 
     ProphetKeyBindings();
 
-    hasBandage, bandageBag, bandageSlot = btp_get_item("Bandage");
-
-    --
-    -- Bandage Debuff check
-    --
-    hasBandageDebuff, myBandageDebuff,
-    numBandageDebuff, expBanadageDebuff = btp_check_debuff("Recently Bandaged", "player");
-
     playerHealthRatio =  UnitHealth("player")/UnitHealthMax("player");
 
     if (SelfHeal(WARRIOR_THRESH, 0)) then
         --
         -- doing a self heal here (heathstones, potions, etc)
         --
-        return true;
-    elseif (not UnitAffectingCombat("player") and
-            playerHealthRatio < WARRIOR_THRESH and
-            hasBandage and not hasBandageDebuff) then
-            lastBandage = GetTime();
-            FuckBlizzardTargetUnitContainer("player");
-            FuckBlizUseContainerItem(bandageBag, bandageSlot);
         return true;
     end
 end
@@ -123,9 +108,9 @@ function warrior_dps()
 
     ProphetKeyBindings();
 
-    if (btp_free_action()) then
-        return true;
-    end
+    -- if (btp_free_action()) then
+    --     return true;
+    -- end
 
     -- get the stance
     stance = GetShapeshiftForm();
@@ -182,8 +167,6 @@ function warrior_dps()
     --
     -- instant actions (these don't have a GCD)
     --
-    warrior_heal();
-
     if (UnitAffectingCombat("player") and rage < 25 and
         playerHealthRatio > .75 and btp_cast_spell_alt("Bloodrage")) then
         -- pop bloodrage
@@ -202,17 +185,27 @@ function warrior_dps()
         -- swap stances out of combat for charge
     end
 
-    if (SelfHeal(WARRIOR_THRESH, 0)) then
+    --
+    -- normal actions
+    --
+    if (warrior_heal()) then
         return true;
     elseif ((btp_is_casting("target") or btp_is_channeling("target")) and
             btp_check_dist("target", 3) and btp_cast_spell("Shield Bash")) then
         return true;
+    elseif ((btp_is_casting("target") or btp_is_channeling("target")) and
+            btp_check_dist("target", 3) and btp_cast_spell("Concussion Blow")) then
+        return true;
+    elseif (playerHealthRatio < WARRIOR_THRESH and
+            btp_cast_spell("Shield Wall")) then
+        return true;
     elseif (targetHealthRatio < .20 and btp_check_dist("target", 3) and
             btp_cast_spell("Execute")) then
         return true;
-    elseif (btp_enemies_in_range_of("Challenging Shout") > 3 and btp_check_dist("target", 3) and
-            UnitThreatSituation("player", "target") ~= nil and
-            UnitThreatSituation("player", "target") < 3 and
+    elseif (targetHealthRatio < .20 and btp_check_dist("target", 3) and
+            btp_cast_spell("Concussion Blow")) then
+        return true;
+    elseif (btp_enemies_in_range_of("Challenging Shout") > 4 and btp_check_dist("target", 3) and
             btp_cast_spell("Challenging Shout")) then
         return true;
     elseif (btp_check_dist("target", 3) and
@@ -231,7 +224,7 @@ function warrior_dps()
     elseif (btp_enemies_in_range_of("Cleave") > 2 and btp_check_dist("target", 3) and
             btp_cast_spell("Cleave")) then
         return true;
-    elseif (playerHealthRatio < .60 and
+    elseif (playerHealthRatio < .50 and
             btp_cast_spell("Retaliation")) then
         return true;
     elseif (playerHealthRatio < .90 and btp_check_dist("target", 3) and
@@ -241,7 +234,7 @@ function warrior_dps()
             btp_cast_spell("Shield Slam")) then
         return true;
     elseif (btp_check_dist("target", 3) and
-            (GetTime() - lastDisarm) > 10 and targetHealthRatio > .20 and
+            (GetTime() - lastDisarm) > 10 and targetHealthRatio > .40 and
             (UnitCreatureType("target") == "Dragonkin" or
              UnitCreatureType("target") == "Demon" or
              UnitCreatureType("target") == "Humanoid") and
@@ -267,6 +260,7 @@ function warrior_dps()
             btp_check_dist("target", 3) and btp_cast_spell("Thunder Clap")) then
         return true;
     elseif (rage > 15 and not myRend and btp_check_dist("target", 3) and
+            targetHealthRatio > .20 and
             UnitCreatureType("target") ~= "Elemental" and
             btp_cast_spell("Rend")) then
         return true;
@@ -278,6 +272,9 @@ function warrior_dps()
         return true;
     elseif (rage > 70 and btp_check_dist("target", 3) and
             btp_cast_spell("Heroic Strike")) then
+        return true;
+    elseif (rage > 70 and btp_check_dist("target", 3) and
+            btp_cast_spell("Slam")) then
         return true;
     elseif (not UnitAffectingCombat("player") and
             btp_cast_spell("Charge")) then

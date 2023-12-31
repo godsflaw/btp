@@ -664,8 +664,11 @@ end
 
 function FuckBlizUseInventoryItem(itemID)
     if (GetInventoryItemLink("player", itemID)) then
-        itemName = string.gsub(GetInventoryItemLink("player", itemID),
-                               "^.-%[(.*)%].*", "%1");
+        -- itemName = string.gsub(GetInventoryItemLink("player", itemID),
+        --                        "^.-%[(.*)%].*", "%1");
+        itemName, itemLink, itemRarity, itemLevel, itemMinLevel,
+        itemType, itemSubType, itemStackCount, itemEquipLoc,
+        invTexture = GetItemInfo(GetInventoryItemLink("player", itemID));
         btp_frame_set_color_hex("IA", keyToColor[fuckBlizMapping[itemName]]);
         btp_frame_set_color_hex("IT", "FFFFFF");
     end
@@ -673,8 +676,13 @@ end
 
 function FuckBlizUseContainerItem(bag, slot)
     if (C_Container.GetContainerItemLink(bag, slot)) then
-        itemName = string.gsub(C_Container.GetContainerItemLink(bag, slot),
-                               "^.-%[(.*)%].*", "%1");
+        -- itemName = string.gsub(C_Container.GetContainerItemLink(bag, slot),
+        --                        "^.-%[(.*)%].*", "%1");
+        itemName, itemLink, itemRarity, itemLevel, itemMinLevel,
+        itemType, itemSubType, itemStackCount, itemEquipLoc,
+        invTexture = GetItemInfo(C_Container.GetContainerItemLink(bag, slot));
+        -- btp_frame_debug("USING ItemName: " .. itemName);
+        -- btp_frame_debug("Bag: " .. bag .. " Slot: " .. slot);
         btp_frame_set_color_hex("CA", keyToColor[fuckBlizMapping[itemName]]);
         btp_frame_set_color_hex("IT", "FFFFFF");
     end
@@ -1085,7 +1093,15 @@ function BTP_Decursive()
     end
 
     if (UnitClass("player") == "Druid") then
-        if (hasPoisonDebuff and
+        if (hasCurseDebuff and
+            btp_cast_spell_on_target("Remove Curse", debuffPlayer)) then
+            FuckBlizzardTargetUnit("playertarget");
+            return true;
+        elseif (hasPoisonDebuff and
+            btp_cast_spell_on_target("Abolish Poison", debuffPlayer)) then
+            FuckBlizzardTargetUnit("playertarget");
+            return true;
+        elseif (hasPoisonDebuff and
             btp_cast_spell_on_target("Cure Poison", debuffPlayer)) then
             FuckBlizzardTargetUnit("playertarget");
             return true;
@@ -1350,7 +1366,7 @@ function ProphetKeyBindings()
                end
 
                if (fuckBlizMapping[spellName] == nil) then
-		   if(key=="CTRL-" and letters[j] == ",") then
+                    if(key=="CTRL-" and letters[j] == ",") then
                        j = j + 1;
                    end
                    fuckBlizMapping[spellName] = key .. letters[j];
@@ -2990,7 +3006,7 @@ function SelfHeal(healthThresh, manaThresh)
         FuckBlizUseContainerItem(healthPotionBag, healthPotionSlot);
         return true;
     elseif (hasManaPotion and UnitAffectingCombat("player") and
-            UnitPower("player")/UnitPowerMax("player") <= manaThresh) then
+            UnitPower("player")/UnitPowerMax("player") < manaThresh) then
         FuckBlizUseContainerItem(manaPotionBag, manaPotionSlot);
         return true;
     end

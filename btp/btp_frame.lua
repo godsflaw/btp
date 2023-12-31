@@ -237,14 +237,15 @@ function btp_frame_set_color(fname, red, green, blue)
 end
 
 function btp_frame_set_color_hex(fname, hex)
-        if (fname and hex) then
-	    local rhex, ghex, bhex = string.sub(hex, 1, 2),
-                                     string.sub(hex, 3, 4),
-                                     string.sub(hex, 5, 6);
-	    btp_frame_set_color(fname, tonumber(rhex, 16)/255,
-                                       tonumber(ghex, 16)/255,
-                                       tonumber(bhex, 16)/255);
-        end
+	if (fname and hex) then
+		-- print ("frame: " .. fname .. " hex: " .. "Call stack:\n" .. debugstack(2, 5, 2));
+		local rhex, ghex, bhex = string.sub(hex, 1, 2),
+			string.sub(hex, 3, 4),
+			string.sub(hex, 5, 6);
+		btp_frame_set_color(fname, tonumber(rhex, 16)/255,
+			tonumber(ghex, 16)/255,
+			tonumber(bhex, 16)/255);
+	end
 end
 
 function btp_frame_set_text(fname, data)

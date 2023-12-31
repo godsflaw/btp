@@ -27,7 +27,7 @@ HEALTH_SCALAR = .3;
 -- Again this count it from 0 - 2, which is a total of 3.  There may be
 -- more to cycle through as bliz adds more spells.
 --
-MAX_DEST = 4;
+MAX_DEST = 2;
 
 --
 -- BASE_SHARDS is the number of shards the code will try to maintain before
@@ -35,7 +35,7 @@ MAX_DEST = 4;
 -- And NUM_SHARDS is the max amount of shards you would like to keep at any
 -- one time.
 BASE_SHARDS = 2;
-NUM_SHARDS = 5;
+NUM_SHARDS = 12;
 
 --
 -- WARLOCK_LAST_PET is the name of the last pet the warlock was using.
@@ -441,6 +441,12 @@ function WarlockBuff()
     numInvis = btp_check_buff("Detect Invisibility", "player");
 
     --
+    -- Lesser Invisibility Check
+    --
+    hasLesserInvis, myLesserInvis,
+    numLesserInvis = btp_check_buff("Detect Lesser Invisibility", "player");
+
+    --
     -- Unending Breath Check
     --
     hasWater, myWater,
@@ -460,7 +466,7 @@ function WarlockBuff()
         noSoulLink = false;
     end
 
-    if (hasInvis) then
+    if (hasInvis or hasLesserInvis) then
         noInvis = false;
     end
 
@@ -491,6 +497,9 @@ function WarlockBuff()
     if (noInvis and
         btp_cast_spell_on_target("Detect Invisibility", "player")) then
         return true;
+    elseif (noInvis and
+        btp_cast_spell_on_target("Detect Lesser Invisibility", "player")) then
+        return true;
     end
 
     if (noWater and
@@ -513,6 +522,12 @@ function WarlockBuff()
             numInvis = btp_check_buff("Detect Invisibility", nextPlayer);
 
             --
+            -- Lesser Invisibility Check
+            --
+            hasLesserInvis, myLesserInvis,
+            numLesserInvis = btp_check_buff("Detect Lesser Invisibility", nextPlayer);
+
+            --
             -- Unending Breath Check
             --
             hasWater, myWater,
@@ -524,7 +539,7 @@ function WarlockBuff()
             hasFireShield, myFireShield,
             numFireShield = btp_check_buff("Fire Shield", nextPlayer);
 
-            if (hasInvis) then
+            if (hasInvis or hasLesserInvis) then
                 noInvis = false;
             end
 
@@ -546,6 +561,9 @@ function WarlockBuff()
             if (noInvis and
                 btp_cast_spell_on_target("Detect Invisibility", nextPlayer)) then
                 return true;
+            elseif (noInvis and
+                btp_cast_spell_on_target("Detect Lesser Invisibility", nextPlayer)) then
+                return true;
             end
 
             if (noWater and
@@ -555,6 +573,8 @@ function WarlockBuff()
         end
     end
 
+    noInvis = true;
+
     --
     -- Invisibility Check
     --
@@ -562,16 +582,29 @@ function WarlockBuff()
     numInvis = btp_check_buff("Detect Invisibility", "target");
 
     --
+    -- Lesser Invisibility Check
+    --
+    hasLesserInvis, myLesserInvis,
+    numLesserInvis = btp_check_buff("Detect Lesser Invisibility", "target");
+
+    --
     -- Unending Breath Check
     --
     hasWater, myWater,
     numWater = btp_check_buff("Unending Breath", "target");
 
+    if (hasInvis or hasLesserInvis) then
+        noInvis = false;
+    end
+
     --
     -- Player Code
     --
-   if (not hasInvis and UnitIsPlayer("target") and
-       btp_cast_spell_on_target("Detect Detect Invisibility", "target")) then
+   if (noInvis and UnitIsPlayer("target") and
+       btp_cast_spell_on_target("Detect Invisibility", "target")) then
+       return true;
+   elseif (noInvis and UnitIsPlayer("target") and
+       btp_cast_spell_on_target("Detect Lesser Invisibility", "target")) then
        return true;
    end
 
@@ -621,7 +654,7 @@ function WarlockPrimary()
     -- Curse of Tounges
     --    
     hasCurseTounges, myCurseTounges,
-    numCurseTounges = btp_check_debuff("Curse of Tounges", "target");
+    numCurseTounges = btp_check_debuff("Curse of Tongues", "target");
 
     --
     -- Curse of Elements
@@ -852,9 +885,9 @@ function WarlockDest()
     hasFelDomination, myFelDomination,
     numFelDomination = btp_check_buff("Fel Domination", "player");
 
-    -- Nightfall check
-    hasNightfall, myNightfall,
-    numNightfall = btp_check_buff("Nightfall", "player");
+    -- Shadow Trance check
+    hasShadowTrance, myShadowTrance,
+    numShadowTrance = btp_check_buff("Shadow Trance", "player");
 
     -- Demonic Sacrifice Check
     hasDemonicSacrifice, myDemonicSacrifice,
@@ -924,7 +957,7 @@ function WarlockDest()
             UnitPlayerControlled("target"))) and
             btp_cast_spell("Conflagrate")) then
         return true;
-    elseif (not onlyFire and hasNightfall and
+    elseif (not onlyFire and hasShadowTrance and
             btp_cast_spell("Shadow Bolt")) then
         return true;
     elseif (not onlyFire and not spellLock and 
@@ -1022,10 +1055,10 @@ function WarlockDest()
                 not UnitPlayerControlled("target") and
                 btp_cast_spell("Incinerate")) then
             normal_cast = true;
-        elseif (destCount == 3 and not onlyFire and not hasEradication and
+        elseif (not onlyFire and not hasEradication and
                 WarlockPrimary()) then
             normal_cast = true;
-        elseif (destCount == 4 and not onlyFire and not hasEradication and
+        elseif (not onlyFire and not hasEradication and
                 WarlockInst()) then
             normal_cast = true;
         elseif (not onlyShadow and myImmolation and
@@ -1060,7 +1093,7 @@ function WarlockDest()
 
         if (destCount >= MAX_DEST) then
             destCount = 0;
-        else
+        elseif (normal_cast) then
             destCount = destCount + 1;
         end
     end
