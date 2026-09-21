@@ -20,6 +20,7 @@ function btp_chatter_initialize()
     --
     -- DO NOTHING
     --
+    btp_frame_debug("Chatter Bot INIT");
 end
 
 chatter = {};

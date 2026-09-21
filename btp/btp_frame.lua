@@ -64,7 +64,8 @@ function btp_frame_onload(self)
 	curw = fr_width_g;
 	curh = fr_height_g;
 
-	-- btp_frame_debug("btp_frame: OnLoad");
+	btp_frame_debug("btp_frame: OnLoad");
+
 	SLASH_BTP_FRAME1 = "/btp_frame";
 	SLASH_BTP_FINIT1 = "/btp_finit";
 	SLASH_BTP_DBG1 = "/btp_dbg";
@@ -186,7 +187,8 @@ function btp_frame_create(arg_fname, curx, cury, curw, curh)
 	local fname = "btp_frame_" .. arg_fname;
 	-- btp_frame_debug("btp_frame_create: " .. fname .. " curx: " .. curx .. " cury: " .. cury .. " curw: " .. curw .. " curh: " .. curh);
 
-	local f=CreateFrame("FRAME",fname,UIParent);
+	-- local f = CreateFrame("FRAME",fname,UIParent);
+	local f = CreateFrame("FRAME", fname, UIParent, BackdropTemplateMixin and "BackdropTemplate");
 	f:SetWidth(curw); f:SetHeight(curh);
 	f:SetPoint("TOPLEFT",UIParent, "TOPLEFT", curx, cury);
 	f:SetBackdrop({
@@ -206,7 +208,7 @@ function btp_frame_create_pos(arg_fname, curx, cury, curw, curh)
 	local fname = "btp_frame_" .. arg_fname;
 	-- btp_frame_debug("btp_frame_create: " .. fname .. " curx: " .. curx .. " cury: " .. cury .. " curw: " .. curw .. " curh: " .. curh);
 
-	local f=CreateFrame("FRAME",fname,UIParent);
+	local f = CreateFrame("FRAME", fname, UIParent, BackdropTemplateMixin and "BackdropTemplate");
 	f:SetWidth(curw); f:SetHeight(curh);
 	f:SetPoint("CENTER",UIParent, "CENTER", curx, cury);
 	f:SetBackdrop({
@@ -235,14 +237,15 @@ function btp_frame_set_color(fname, red, green, blue)
 end
 
 function btp_frame_set_color_hex(fname, hex)
-        if (fname and hex) then
-	    local rhex, ghex, bhex = string.sub(hex, 1, 2),
-                                     string.sub(hex, 3, 4),
-                                     string.sub(hex, 5, 6);
-	    btp_frame_set_color(fname, tonumber(rhex, 16)/255,
-                                       tonumber(ghex, 16)/255,
-                                       tonumber(bhex, 16)/255);
-        end
+	if (fname and hex) then
+		-- print ("frame: " .. fname .. " hex: " .. "Call stack:\n" .. debugstack(2, 5, 2));
+		local rhex, ghex, bhex = string.sub(hex, 1, 2),
+			string.sub(hex, 3, 4),
+			string.sub(hex, 5, 6);
+		btp_frame_set_color(fname, tonumber(rhex, 16)/255,
+			tonumber(ghex, 16)/255,
+			tonumber(bhex, 16)/255);
+	end
 end
 
 function btp_frame_set_text(fname, data)

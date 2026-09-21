@@ -15,8 +15,6 @@
 -- along with BTP.  If not, see <http://www.gnu.org/licenses/>.
 -- 
 
-MAGE_DEF_TRINKET = "Insignia of the Horde";
-
 function btp_mage_initialize()
     btp_frame_debug("Mage INIT");
 
@@ -77,7 +75,7 @@ BTP_MAGE_THRESH_NO_ICEBARRIER = .01
 	end
 
 	-- Get our mana level
-	mana_level = UnitMana("player")/UnitManaMax("player");
+	mana_level = UnitPower("player")/UnitPowerMax("player");
 	-- Get our health level
 	health_level = UnitHealth("player")/UnitHealthMax("player");
 
@@ -147,10 +145,10 @@ end
 
 function btp_mage_use_mana_emerald()
 	for bag=0,4 do
-		for slot=1,GetContainerNumSlots(bag) do
-			if (GetContainerItemLink(bag,slot)) then
-				if (string.find(GetContainerItemLink(bag,slot), "Mana Emerald")) then
-					start, duration, enable = GetContainerItemCooldown(bag, slot);
+		for slot=1,C_Container.GetContainerNumSlots(bag) do
+			if (C_Container.GetContainerItemLink(bag,slot)) then
+				if (string.find(C_Container.GetContainerItemLink(bag,slot), "Mana Emerald")) then
+					start, duration, enable = C_Container.GetContainerItemCooldown(bag, slot);
 					if (duration - (GetTime() - start) <= 0) then
 						FuckBlizUseContainerItem(bag, slot)
 						return true;
@@ -189,7 +187,7 @@ function btp_mage_dps_frost(unit)
 	-- btp_frame_debug("attacking unit: " .. unit);
 
 	-- Get our mana level
-	mana_level = UnitMana("player")/UnitManaMax("player");
+	mana_level = UnitPower("player")/UnitPowerMax("player");
 	-- Get our health level
 	health_level = UnitHealth("player")/UnitHealthMax("player");
 
@@ -430,8 +428,8 @@ end
 function btp_cnt_item(item)
 	cnt = 0;
 	for bag=0,4 do
-		for slot=1, GetContainerNumSlots(bag) do
-			cur_item = GetContainerItemLink(bag, slot);
+		for slot=1, C_Container.GetContainerNumSlots(bag) do
+			cur_item = C_Container.GetContainerItemLink(bag, slot);
 			if(cur_item) then
 				if(string.find(cur_item, item)) then
 					cnt = cnt + 1;
@@ -472,8 +470,8 @@ function btp_trade_item(item, unit, num)
 
 	cnt = 0;
 	for bag=0,4 do
-		for slot=1, GetContainerNumSlots(bag) do
-			cur_item = GetContainerItemLink(bag, slot);
+		for slot=1, C_Container.GetContainerNumSlots(bag) do
+			cur_item = C_Container.GetContainerItemLink(bag, slot);
 			if(cur_item) then
 				if(string.find(cur_item, item)) then
 					cnt = cnt + 1;

@@ -1,8 +1,0 @@
-============
-Searing Pain
-============
-
-Total Damage (median) = 116208
-DPS (median)          = 1417.17
-
-82 seconds to OOM!

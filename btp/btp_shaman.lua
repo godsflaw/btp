@@ -15,7 +15,6 @@
 -- along with BTP.  If not, see <http://www.gnu.org/licenses/>.
 -- 
 
-SHAMAN_DEF_TRINKET = "Insignia of the Horde";
 
 BTP_SHAM_THRESH_MANA=.33
 BTP_SHAM_THRESH_CRIT=.40
@@ -376,7 +375,6 @@ function btp_sham_heal()
         return true;
     end
 
-    -- Trinkets();
 	ProphetKeyBindings();
 
     for bag=0,4 do
@@ -491,7 +489,7 @@ function btp_sham_heal()
            ((pvpBot and stopMoving) or not pvpBot) and
             hasBandage and not hasBandageDebuff and
             UnitAffectingCombat("player") and
-            UnitMana("player")/UnitManaMax("player") <=
+            UnitPower("player")/UnitPowerMax("player") <=
             BTP_SHAM_THRESH_MANA/4) then
         lastBandage = GetTime();
         bandageTarget = cur_player;
@@ -566,7 +564,7 @@ function btp_sham_heal()
            ((pvpBot and stopMoving) or not pvpBot) and
             hasBandage and not hasBandageDebuff and
             UnitAffectingCombat("player") and
-            UnitMana("player")/UnitManaMax("player") <=
+            UnitPower("player")/UnitPowerMax("player") <=
             BTP_SHAM_THRESH_MANA/4) then
         lastBandage = GetTime();
         bandageTarget = cur_player;
@@ -653,13 +651,13 @@ function btp_sham_totem()
 
         if (UnitAffectingCombat("player") and
             totemName ~= nil and not strfind(totemName, "Mana Tide Totem") and
-            UnitMana("player")/UnitManaMax("player") <= BTP_SHAM_THRESH_MANA and
+            UnitPower("player")/UnitPowerMax("player") <= BTP_SHAM_THRESH_MANA and
             btp_cast_spell("Mana Tide Totem")) then
             return true;
         elseif ((UnitAffectingCombat("player") or
                (strfind(waterTotem, "Mana Spring") and
                UnitHealth("player") >= 2 and
-               UnitMana("player")/UnitManaMax("player") <= .99)) and
+               UnitPower("player")/UnitPowerMax("player") <= .99)) and
                totemName ~= nil and not strfind(totemName, waterTotem) and
                not strfind(totemName, "Mana Tide Totem") and
                not strfind(totemName, "Poison Cleansing Totem") and
@@ -712,7 +710,7 @@ function btp_sham_resurrection()
     end
 
     if (not UnitAffectingCombat("player") and resurrectionName ~= nil and
-        UnitMana("player")/UnitManaMax("player") > BTP_SHAM_THRESH_MANA and
+        UnitPower("player")/UnitPowerMax("player") > BTP_SHAM_THRESH_MANA and
         btp_cast_spell_on_target("Ancestral Spirit", resurrectionName)) then
 		FuckBlizzardTargetUnit("playertarget");
         return true;

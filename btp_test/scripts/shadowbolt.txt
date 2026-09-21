@@ -1,8 +1,0 @@
-===========
-Shadow Bolt
-===========
-
-Total Damage (median) = 75000
-DPS (median)          = 1171.88
-
-64 seconds to OOM!

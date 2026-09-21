@@ -1,8 +1,0 @@
-==========
-Incinerate
-==========
-
-Total Damage (median) = 96627
-DPS (median)          = 1223.13
-
-79 seconds to OOM!

@@ -29,7 +29,6 @@ along with BTP.  If not, see <http://www.gnu.org/licenses/>.
             self:RegisterEvent("CHAT_MSG_WHISPER");
             self:RegisterEvent("CHAT_MSG_GUILD");
             self:RegisterEvent("RESURRECT_REQUEST");
-            self:RegisterEvent("CURSOR_UPDATE");
          </OnLoad>
          <OnEvent>
             if (event == "ADDON_LOADED") then
@@ -42,8 +41,6 @@ along with BTP.  If not, see <http://www.gnu.org/licenses/>.
                 btp_general_chat_msg_guild();
             elseif (event == "RESURRECT_REQUEST") then
                 btp_general_resurrect_request();
-            elseif (event == "CURSOR_UPDATE") then
-                btp_general_cursor_update();
             end
          </OnEvent>
       </Scripts>

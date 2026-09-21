@@ -16,7 +16,6 @@
 -- 
 PALADIN_MANA_THRESH = .3;
 PALADIN_HEALTH_THRESH = .3;
-PALADIN_DEF_TRINKET = "Insignia of the Horde";
 PALADIN_PULL_SPELL = "Avenger's Shield";
 PALADIN_GRIND = false;
 
@@ -105,44 +104,6 @@ CONFIG_THRESH = { };
 CONFIG_SPELLS = { };
 CONFIG_CMDS = { };
 CONFIG = { };
-
-CONFIG_OPTS = { };
--- is the bot in pvpmode
-CONFIG_OPTS["PVP"] = { };
-CONFIG_OPTS["PVP"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["PVP"]["VALUE"] = true;
-CONFIG_OPTS["PVP"]["DESC"] = "PVP mode On/Off";
--- should the bot buff people
-CONFIG_OPTS["BUFF"] = { };
-CONFIG_OPTS["BUFF"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["BUFF"]["VALUE"] = true;
-CONFIG_OPTS["BUFF"]["DESC"] = "Buffing On/Off";
--- should the bot stop while casting a spell that chanels
-CONFIG_OPTS["STOP"] = { };
-CONFIG_OPTS["STOP"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["STOP"]["VALUE"] = true;
-CONFIG_OPTS["STOP"]["DESC"] = "Stop while casting On/Off";
--- should the bot use potions
-CONFIG_OPTS["POT"] = { };
-CONFIG_OPTS["POT"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["POT"]["VALUE"] = true;
-CONFIG_OPTS["POT"]["DESC"] = "Drink Potions On/Off";
--- who the bot should follow
-CONFIG_OPTS["FOLLOW"] = { };
-CONFIG_OPTS["FOLLOW"]["TYPE"] = TYPE_STRING;
-CONFIG_OPTS["FOLLOW"]["VALUE"] = "Guild";
-CONFIG_OPTS["FOLLOW"]["DESC"] = "Who to follow";
--- should the bot drink it's watter
-CONFIG_OPTS["DRINK"] = { };
-CONFIG_OPTS["DRINK"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["DRINK"]["VALUE"] = true;
-CONFIG_OPTS["DRINK"]["DESC"] = "Drink Watter On/Off";
--- the bot will attack your target when in combat
-CONFIG_OPTS["DPS"] = { };
-CONFIG_OPTS["DPS"]["TYPE"] = TYPE_BOOL;
-CONFIG_OPTS["DPS"]["VALUE"] = false;
-CONFIG_OPTS["DPS"]["DESC"] = "DPS mode On/Off";
-CONFIG_OPTS["DPS"]["CB"] = "DPS mode On/Off";
 
 
 --
@@ -262,9 +223,6 @@ function btp_set_thresh(cmdstr)
 	return CONFIG["THRESH"][args[1]];
 end
 
-
-function btp_set_opt(cmdstr)
-end
 
 function btp_addon_cast_spell(cmdstr)
 	if(cmdstr == nil) then 
@@ -559,7 +517,7 @@ function btp_pal_heal_pvp()
 	end
 
 	-- if we are getting low on mana fix it
-	mana_level = UnitMana("player")/UnitManaMax("player");
+	mana_level = UnitPower("player")/UnitPowerMax("player");
 	if(UnitAffectingCombat("player") and mana_level < .4) then
 		if(btp_cast_spell("Divine Illumination")) then
 			return true;
@@ -594,7 +552,7 @@ function btp_pal_heal_pvp()
 	if(cur_player ~= false) then
 		-- btp_frame_debug("Crit Heal: " .. cur_player);
 
-		mana_level = UnitMana("player")/UnitManaMax("player");
+		mana_level = UnitPower("player")/UnitPowerMax("player");
 		if(mana_level < .2) then
 			if(btp_cast_spell("Lay on Hands")) then 
 				return true; 
@@ -664,7 +622,7 @@ function btp_pal_dps()
 	if(btp_cast_spell("Holy Shield")) then return true; end
 
 	-- Get our mana level
-	mana_level = UnitMana("player")/UnitManaMax("player");
+	mana_level = UnitPower("player")/UnitPowerMax("player");
 	-- Get our health level
 	health_level = UnitHealth("player")/UnitHealthMax("player");
 
@@ -1064,7 +1022,7 @@ function btp_pal_ret()
 	if(btp_cast_spell("Holy Shield")) then return true; end
 
 	-- Get our mana level
-	mana_level = UnitMana("player")/UnitManaMax("player");
+	mana_level = UnitPower("player")/UnitPowerMax("player");
 	-- Get our health level
 	health_level = UnitHealth("player")/UnitHealthMax("player");
 
@@ -1202,7 +1160,7 @@ function btp_pal_tank_new(tank_aoe)
         end
 
 	-- Get our mana level
-	mana_level = UnitMana("player")/UnitManaMax("player");
+	mana_level = UnitPower("player")/UnitPowerMax("player");
 	-- Get our health level
 	health_level = UnitHealth("player")/UnitHealthMax("player");
 
@@ -1300,7 +1258,7 @@ function btp_pal_tank()
 
 
 	-- Get our mana level
-	mana_level = UnitMana("player")/UnitManaMax("player");
+	mana_level = UnitPower("player")/UnitPowerMax("player");
 	-- Get our health level
 	health_level = UnitHealth("player")/UnitHealthMax("player");
 
@@ -1375,7 +1333,7 @@ function btp_pal_tank()
 	end
 
 
-	mana_level = UnitMana("player")/UnitManaMax("player");
+	mana_level = UnitPower("player")/UnitPowerMax("player");
 	if(pvpBot and not btp_pal_issoj() 
 		and not btp_check_debuff("SealOfWrath", target)) then
 		return btp_cast_spell("Seal of Justice");

@@ -15,8 +15,271 @@
 -- along with BTP.  If not, see <http://www.gnu.org/licenses/>.
 -- 
 
-WARRIOR_DEF_TRINKET = "Insignia of the Horde";
+WARRIOR_THRESH   = .30;
+W_RAGE_RETENTION = 0 + 5;
+
+-- stance types
+S_BATTLE  = 1;
+S_DEFENSE = 2;
+S_BESERK  = 3;
+
+lastDisarm = 0;
 
 function btp_warrior_initialize()
-    btp_frame_debug("Warrior INIT");
+    btp_frame_debug("warrior INIT");
+
+    SlashCmdList["WARRIORH"] = warrior_heal;
+    SLASH_WARRIORH1 = "/warriorheal";
+    SlashCmdList["WARRIORR"] = warrior_roach;
+    SLASH_WARRIORR1 = "/warriorroach";
+    SlashCmdList["WARRIORD"] = warrior_dps;
+    SLASH_WARRIORD1 = "/warriordps";
+end
+
+function warrior_heal()
+    if (current_cb ~= nil and current_cb()) then
+        return true;
+    end
+
+    ProphetKeyBindings();
+
+    playerHealthRatio =  UnitHealth("player")/UnitHealthMax("player");
+
+    if (SelfHeal(WARRIOR_THRESH, 0)) then
+        --
+        -- doing a self heal here (heathstones, potions, etc)
+        --
+        return true;
+    end
+end
+
+function warrior_roach()
+    if (current_cb ~= nil and current_cb()) then
+        return true;
+    end
+
+    ProphetKeyBindings();
+
+    if (btp_free_action()) then
+        return true;
+    end
+
+    hasDummy, dummyBag, dummySlot = btp_get_item("Target Dummy");
+    hasSwift, swiftBag, swiftSlot = btp_get_item("Swiftness Potion");
+
+    -- get the stance
+    stance = GetShapeshiftForm();
+
+    -- Hamstring
+    hasHamstring, myHamstring, numHamstring, expHamstring = btp_check_debuff(
+        "Hamstring",
+        "target"
+    );
+
+    playerHealthRatio =  UnitHealth("player")/UnitHealthMax("player");
+
+    --
+    -- instant actions (these don't have a GCD)
+    --
+    if (UnitAffectingCombat("player") and stance ~= S_BATTLE and
+        btp_cast_spell_alt("Battle Stance")) then
+        -- for hamstring and other abilities while running
+    end
+
+    -- primary actions
+    if (warrior_heal()) then
+        return true;
+    elseif (UnitAffectingCombat("player") and not hasHamstring and
+            btp_cast_spell("Hamstring")) then
+        return true;
+    elseif (UnitAffectingCombat("player") and hasSwift) then
+        FuckBlizUseContainerItem(swiftBag, swiftSlot);
+        return true;
+    elseif (UnitAffectingCombat("player") and hasDummy) then
+        FuckBlizUseContainerItem(dummyBag, dummySlot);
+        return true;
+    end
+end
+
+function warrior_dps()
+    if (current_cb ~= nil and current_cb()) then
+        return true;
+    end
+
+    ProphetKeyBindings();
+
+    -- if (btp_free_action()) then
+    --     return true;
+    -- end
+
+    -- get the stance
+    stance = GetShapeshiftForm();
+
+    --
+    -- buffs
+    --
+
+    -- Battle Shout
+    hasBattleShout, myBattleShout, numBattleShout, expBattleShout = btp_check_buff(
+        "Battle Shout",
+        "player"
+    );
+
+    --
+    -- debuffs
+    --
+
+    -- Demoralizing Shout
+    hasDemoShout, myDemoShout, numDemoShout, expDemoShout = btp_check_debuff(
+        "Demoralizing Shout",
+        "target"
+    );
+
+    -- Rend
+    hasRend, myRend, numRend, expRend = btp_check_debuff(
+        "Rend",
+        "target"
+    );
+
+    -- Thunder Clap
+    hasClap, myClap, numClap, expClap = btp_check_debuff(
+        "Thunder Clap",
+        "target"
+    );
+
+    -- Hamstring
+    hasHamstring, myHamstring, numHamstring, expHamstring = btp_check_debuff(
+        "Hamstring",
+        "target"
+    );
+
+    -- Sunder Armor
+    hasSunder, mySunder, numSunder, expSunder = btp_check_debuff(
+        "Sunder Armor",
+        "target"
+    );
+
+    playerHealthRatio =  UnitHealth("player")/UnitHealthMax("player");
+    targetHealthRatio =  UnitHealth("target")/UnitHealthMax("target");
+
+    rage = UnitPower("player", T_RAGE);
+
+    --
+    -- instant actions (these don't have a GCD)
+    --
+    if (UnitAffectingCombat("player") and rage < 25 and
+        playerHealthRatio > .75 and btp_cast_spell_alt("Bloodrage")) then
+        -- pop bloodrage
+    elseif (UnitAffectingCombat("player") and stance ~= S_BATTLE and
+            rage < W_RAGE_RETENTION and playerHealthRatio > .50 and
+            targetHealthRatio <= .20 and
+            btp_cast_spell_alt("Battle Stance")) then
+        -- swap stances for hamstring, execute, thunder clap, and overpower
+    elseif (UnitAffectingCombat("player") and stance ~= S_DEFENSE and
+            rage < W_RAGE_RETENTION and targetHealthRatio > .20 and
+            btp_cast_spell_alt("Defensive Stance")) then
+        -- swap stances taunting and tanking
+    elseif (not UnitAffectingCombat("player") and stance ~= S_BATTLE and
+            rage < W_RAGE_RETENTION and
+            btp_cast_spell_alt("Battle Stance")) then
+        -- swap stances out of combat for charge
+    end
+
+    --
+    -- normal actions
+    --
+    if (warrior_heal()) then
+        return true;
+    elseif ((btp_is_casting("target") or btp_is_channeling("target")) and
+            btp_check_dist("target", 3) and btp_cast_spell("Shield Bash")) then
+        return true;
+    elseif ((btp_is_casting("target") or btp_is_channeling("target")) and
+            btp_check_dist("target", 3) and btp_cast_spell("Concussion Blow")) then
+        return true;
+    elseif (playerHealthRatio < WARRIOR_THRESH and
+            btp_cast_spell("Shield Wall")) then
+        return true;
+    elseif (targetHealthRatio < .20 and btp_check_dist("target", 3) and
+            btp_cast_spell("Execute")) then
+        return true;
+    elseif (targetHealthRatio < .20 and btp_check_dist("target", 3) and
+            btp_cast_spell("Concussion Blow")) then
+        return true;
+    elseif (btp_enemies_in_range_of("Challenging Shout") > 4 and btp_check_dist("target", 3) and
+            btp_cast_spell("Challenging Shout")) then
+        return true;
+    elseif (btp_check_dist("target", 3) and
+            UnitThreatSituation("player", "target") ~= nil and
+            UnitThreatSituation("player", "target") < 3 and
+            btp_cast_spell("Taunt")) then
+        return true;
+    elseif (btp_check_dist("target", 3) and
+            UnitThreatSituation("player", "target") ~= nil and
+            UnitThreatSituation("player", "target") < 3 and
+            btp_cast_spell("Mocking Blow")) then
+        return true;
+    elseif (not mySunder and numSunder < 1 and btp_check_dist("target", 3) and
+            btp_cast_spell("Sunder Armor")) then
+        return true;
+    elseif (btp_enemies_in_range_of("Cleave") > 2 and btp_check_dist("target", 3) and
+            btp_cast_spell("Cleave")) then
+        return true;
+    elseif (playerHealthRatio < .50 and
+            btp_cast_spell("Retaliation")) then
+        return true;
+    elseif (playerHealthRatio < .90 and btp_check_dist("target", 3) and
+            btp_cast_spell("Shield Block")) then
+        return true;
+    elseif (btp_check_dist("target", 3) and
+            btp_cast_spell("Shield Slam")) then
+        return true;
+    elseif (btp_check_dist("target", 3) and
+            (GetTime() - lastDisarm) > 10 and targetHealthRatio > .40 and
+            (UnitCreatureType("target") == "Dragonkin" or
+             UnitCreatureType("target") == "Demon" or
+             UnitCreatureType("target") == "Humanoid") and
+            btp_cast_spell("Disarm")) then
+        lastDisarm = GetTime();
+        return true;
+    elseif (btp_check_dist("target", 3) and
+            btp_cast_spell("Bloodthirst")) then
+        return true;
+    elseif (btp_check_dist("target", 3) and
+            btp_cast_spell("Revenge")) then
+        return true;
+    elseif (targetHealthRatio < .20 and not hasHamstring and
+            btp_check_dist("target", 3) and btp_cast_spell("Hamstring")) then
+        return true;
+    elseif (not hasDemoShout and targetHealthRatio > .20 and
+            btp_cast_spell("Demoralizing Shout")) then
+        return true;
+    elseif (not hasBattleShout and
+            btp_cast_spell("Battle Shout")) then
+        return true;
+    elseif (not myClap and btp_enemies_in_range_of("Thunder Clap") > 2 and
+            btp_check_dist("target", 3) and btp_cast_spell("Thunder Clap")) then
+        return true;
+    elseif (rage > 15 and not myRend and btp_check_dist("target", 3) and
+            targetHealthRatio > .20 and
+            UnitCreatureType("target") ~= "Elemental" and
+            btp_cast_spell("Rend")) then
+        return true;
+    elseif (btp_check_dist("target", 3) and
+            btp_cast_spell("Overpower")) then
+        return true;
+    elseif (mySunder and numSunder < 5 and btp_check_dist("target", 3) and
+            btp_cast_spell("Sunder Armor")) then
+        return true;
+    elseif (rage > 70 and btp_check_dist("target", 3) and
+            btp_cast_spell("Heroic Strike")) then
+        return true;
+    elseif (rage > 70 and btp_check_dist("target", 3) and
+            btp_cast_spell("Slam")) then
+        return true;
+    elseif (not UnitAffectingCombat("player") and
+            btp_cast_spell("Charge")) then
+        return true;
+    end
+
+    return true;
 end
